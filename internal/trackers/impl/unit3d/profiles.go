@@ -39,6 +39,7 @@ var unit3DSiteProfiles = map[string]unit3DSiteProfile{
 	"TIK":    siteTIKProfile(),
 	"TLZ":    siteTLZProfile(),
 	"TOS":    siteTOSProfile(),
+	"TTR":    siteTTRProfile(),
 	"UTP":    siteUTPProfile(),
 	"YUS":    siteYUSProfile(),
 	"ZNTH":   siteZNTHProfile(),
