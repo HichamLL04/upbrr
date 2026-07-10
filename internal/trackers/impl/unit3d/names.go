@@ -60,6 +60,8 @@ func buildUnit3DName(tracker string, meta api.PreparedMetadata, cfg config.Track
 		return BuildCBRName(meta, cfg.TagForCustomRelease)
 	case "OE":
 		return addNoGroupSuffix(name, meta, "NOGRP")
+	case "TTR":
+		return buildTTRName(name, meta)
 	case "ULCX":
 		return buildULCXName(name, meta)
 	case "ZNTH":
@@ -648,6 +650,161 @@ func buildLTName(name string, meta api.PreparedMetadata) string {
 			if !strings.Contains(ltName, "[SUBS]") {
 				ltName = insertTagBracket(ltName, "SUBS")
 			}
+		}
+	}
+
+	multipleDots := regexp.MustCompile(`\.{2,}`)
+	ltName = multipleDots.ReplaceAllString(ltName, ".")
+	multipleSpaces := regexp.MustCompile(`\s{2,}`)
+	ltName = multipleSpaces.ReplaceAllString(ltName, " ")
+	return strings.Trim(ltName, ". ")
+}
+
+func buildTTRName(name string, meta api.PreparedMetadata) string {
+	tag := strings.TrimSpace(meta.Tag)
+	tag = strings.TrimPrefix(tag, "-")
+	ltName := name
+
+	// We want to insert the Spanish suffix right before the group tag
+	insertSuffix := func(s, suffix string) string {
+		if tag != "" {
+			sep := "-" + tag
+			if idx := strings.LastIndex(s, sep); idx != -1 {
+				return s[:idx] + " " + suffix + s[idx:]
+			}
+		}
+		return s + " " + suffix
+	}
+
+	isDisc := false
+	if normalizeUnit3DTypeCandidate(meta.Type) == "DISC" || normalizeUnit3DTypeCandidate(meta.Release.Type) == "DISC" || meta.DiscType != "" {
+		isDisc = true
+	}
+
+	getSpanishType := func(langCode string) string {
+		if langCode == "" {
+			return ""
+		}
+		lower := strings.ToLower(strings.TrimSpace(langCode))
+		if lower == "es-es" || lower == "es" || lower == "spa" || lower == "spanish" || lower == "castellano" || lower == "castilian" {
+			return "Castellano"
+		}
+		if strings.HasPrefix(lower, "es-") || strings.Contains(lower, "latino") || strings.Contains(lower, "latin") || lower == "es-419" {
+			return "Latino"
+		}
+		return ""
+	}
+
+	if isDisc {
+		hasSpanishAudio := false
+		isLatinoAudio := false
+		for _, lang := range meta.AudioLanguages {
+			t := getSpanishType(lang)
+			if t != "" {
+				hasSpanishAudio = true
+				if t == "Latino" {
+					isLatinoAudio = true
+				}
+			}
+		}
+
+		hasSpanishSubs := false
+		isLatinoSubs := false
+		for _, lang := range meta.SubtitleLanguages {
+			t := getSpanishType(lang)
+			if t != "" {
+				hasSpanishSubs = true
+				if t == "Latino" {
+					isLatinoSubs = true
+				}
+			}
+		}
+
+		if hasSpanishAudio {
+			suffix := "Castellano"
+			if isLatinoAudio {
+				suffix = "Latino"
+			}
+			ltName = insertSuffix(ltName, suffix)
+		} else if hasSpanishSubs {
+			suffix := "Castellano Subs"
+			if isLatinoSubs {
+				suffix = "Latino Subs"
+			}
+			ltName = insertSuffix(ltName, suffix)
+		}
+	} else {
+		type rawMediaInfoDoc struct {
+			Media struct {
+				Track []map[string]any `json:"track"`
+			} `json:"media"`
+		}
+
+		var tracks []map[string]any
+		if meta.MediaInfoJSONPath != "" {
+			if payload, err := os.ReadFile(meta.MediaInfoJSONPath); err == nil {
+				var doc rawMediaInfoDoc
+				if err := json.Unmarshal(payload, &doc); err == nil {
+					tracks = doc.Media.Track
+				}
+			}
+		}
+
+		spanishAudioType := ""
+		spanishSubsType := ""
+
+		if len(tracks) > 0 {
+			for _, track := range tracks {
+				trackType := ""
+				if val, ok := track["@type"]; ok {
+					trackType = strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", val)))
+				}
+				if trackType == "audio" {
+					lang := namesTrackString(track, "Language", "Language_String", "Language_String2", "Language_String3")
+					if t := getSpanishType(lang); t != "" {
+						spanishAudioType = t
+						break
+					}
+				}
+			}
+
+			for _, track := range tracks {
+				trackType := ""
+				if val, ok := track["@type"]; ok {
+					trackType = strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", val)))
+				}
+				if trackType == "text" {
+					lang := namesTrackString(track, "Language", "Language_String", "Language_String2", "Language_String3")
+					if t := getSpanishType(lang); t != "" {
+						spanishSubsType = t
+						break
+					}
+				}
+			}
+		}
+
+		// Fallback if no tracks parsed
+		if len(tracks) == 0 {
+			for _, lang := range meta.AudioLanguages {
+				if t := getSpanishType(lang); t != "" {
+					spanishAudioType = t
+					break
+				}
+			}
+			if spanishAudioType == "" {
+				for _, lang := range meta.SubtitleLanguages {
+					if t := getSpanishType(lang); t != "" {
+						spanishSubsType = t
+						break
+					}
+				}
+			}
+		}
+
+		if spanishAudioType != "" {
+			ltName = insertSuffix(ltName, spanishAudioType)
+		} else if spanishSubsType != "" {
+			ltName = insertSuffix(ltName, spanishSubsType+" Subs")
 		}
 	}
 

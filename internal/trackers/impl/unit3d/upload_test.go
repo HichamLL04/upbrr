@@ -2079,3 +2079,102 @@ func TestResolveUnit3DLTCategoryID(t *testing.T) {
 		}
 	})
 }
+
+func TestBuildUnit3DNameTTR(t *testing.T) {
+	t.Run("adds Castellano for Spanish audio track (Castilian code)", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "mediainfo-*.json")
+		if err != nil {
+			t.Fatalf("failed to create temp file: %v", err)
+		}
+		defer os.Remove(tempFile.Name())
+
+		mediaInfoJSON := `{
+			"media": {
+				"track": [
+					{"@type": "General"},
+					{"@type": "Video"},
+					{"@type": "Audio", "Language": "es"}
+				]
+			}
+		}`
+		if _, err := tempFile.Write([]byte(mediaInfoJSON)); err != nil {
+			t.Fatalf("failed to write temp file: %v", err)
+		}
+		tempFile.Close()
+
+		meta := api.PreparedMetadata{
+			ReleaseName:       "Movie.2024.1080p.Bluray-GRP",
+			Tag:               "-GRP",
+			MediaInfoJSONPath: tempFile.Name(),
+		}
+		got := buildUnit3DName("TTR", meta, config.TrackerConfig{})
+		if !strings.Contains(got, " Castellano-GRP") {
+			t.Fatalf("expected Castellano suffix added before GRP, got %q", got)
+		}
+	})
+
+	t.Run("adds Latino for regional Spanish audio track", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "mediainfo-*.json")
+		if err != nil {
+			t.Fatalf("failed to create temp file: %v", err)
+		}
+		defer os.Remove(tempFile.Name())
+
+		mediaInfoJSON := `{
+			"media": {
+				"track": [
+					{"@type": "General"},
+					{"@type": "Video"},
+					{"@type": "Audio", "Language": "es-mx"}
+				]
+			}
+		}`
+		if _, err := tempFile.Write([]byte(mediaInfoJSON)); err != nil {
+			t.Fatalf("failed to write temp file: %v", err)
+		}
+		tempFile.Close()
+
+		meta := api.PreparedMetadata{
+			ReleaseName:       "Movie.2024.1080p.Bluray-GRP",
+			Tag:               "-GRP",
+			MediaInfoJSONPath: tempFile.Name(),
+		}
+		got := buildUnit3DName("TTR", meta, config.TrackerConfig{})
+		if !strings.Contains(got, " Latino-GRP") {
+			t.Fatalf("expected Latino suffix added before GRP, got %q", got)
+		}
+	})
+
+	t.Run("adds Latino Subs when only regional Spanish text track", func(t *testing.T) {
+		tempFile, err := os.CreateTemp("", "mediainfo-*.json")
+		if err != nil {
+			t.Fatalf("failed to create temp file: %v", err)
+		}
+		defer os.Remove(tempFile.Name())
+
+		mediaInfoJSON := `{
+			"media": {
+				"track": [
+					{"@type": "General"},
+					{"@type": "Video"},
+					{"@type": "Audio", "Language": "en"},
+					{"@type": "Text", "Language": "es-ar"}
+				]
+			}
+		}`
+		if _, err := tempFile.Write([]byte(mediaInfoJSON)); err != nil {
+			t.Fatalf("failed to write temp file: %v", err)
+		}
+		tempFile.Close()
+
+		meta := api.PreparedMetadata{
+			ReleaseName:       "Movie.2024.1080p.Bluray-GRP",
+			Tag:               "-GRP",
+			MediaInfoJSONPath: tempFile.Name(),
+		}
+		got := buildUnit3DName("TTR", meta, config.TrackerConfig{})
+		if !strings.Contains(got, " Latino Subs-GRP") {
+			t.Fatalf("expected Latino Subs suffix added before GRP, got %q", got)
+		}
+	})
+}
