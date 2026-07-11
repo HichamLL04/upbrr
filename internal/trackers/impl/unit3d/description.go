@@ -6,6 +6,7 @@ package unit3d
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/autobrr/upbrr/internal/config"
@@ -24,5 +25,44 @@ func buildUnit3DDescription(ctx context.Context, tracker string, meta api.Prepar
 	if strings.EqualFold(strings.TrimSpace(tracker), "SHRI") {
 		return applySHRIDescriptionNotes(description, meta), nil
 	}
+	if strings.EqualFold(strings.TrimSpace(tracker), "EMUW") {
+		var youtubeURL string
+		if meta.ExternalMetadata.TMDB != nil {
+			youtubeURL = meta.ExternalMetadata.TMDB.YouTube
+		}
+		if youtubeURL != "" {
+			if id := extractYouTubeID(youtubeURL); id != "" {
+				description = fmt.Sprintf("[center][youtube]%s[/youtube][/center]\n\n%s", id, description)
+			}
+		}
+	}
 	return description, nil
+}
+
+func extractYouTubeID(urlStr string) string {
+	urlStr = strings.TrimSpace(urlStr)
+	if urlStr == "" {
+		return ""
+	}
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		if idx := strings.Index(urlStr, "v="); idx != -1 {
+			id := urlStr[idx+2:]
+			if ampersandIdx := strings.Index(id, "&"); ampersandIdx != -1 {
+				id = id[:ampersandIdx]
+			}
+			return id
+		}
+		return ""
+	}
+	if u.Host == "youtu.be" {
+		return strings.TrimPrefix(u.Path, "/")
+	}
+	if strings.Contains(u.Path, "/embed/") {
+		return strings.TrimPrefix(u.Path, "/embed/")
+	}
+	if strings.Contains(u.Path, "/v/") {
+		return strings.TrimPrefix(u.Path, "/v/")
+	}
+	return u.Query().Get("v")
 }

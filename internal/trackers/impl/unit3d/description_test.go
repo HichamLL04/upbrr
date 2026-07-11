@@ -617,3 +617,26 @@ func TestBuildUnit3DDescriptionFiltersMenuImagesFromScreenshots(t *testing.T) {
 		t.Fatalf("expected menu image to appear only once, got %d times in %q", count, result)
 	}
 }
+
+func TestBuildUnit3DDescriptionEMUW(t *testing.T) {
+	meta := api.PreparedMetadata{
+		DescriptionTemplate: "Example Description",
+		ExternalMetadata: api.ExternalMetadata{
+			TMDB: &api.TMDBMetadata{
+				YouTube: "https://www.youtube.com/watch?v=kynbQYIVK7I",
+			},
+		},
+	}
+	cfg := config.Config{}
+	result, err := buildUnit3DDescription(context.Background(), "EMUW", meta, cfg, config.TrackerConfig{}, api.NopLogger{}, "", nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expectedTrailer := "[center][youtube]kynbQYIVK7I[/youtube][/center]"
+	if !strings.Contains(result, expectedTrailer) {
+		t.Fatalf("expected trailer %q in description, got %q", expectedTrailer, result)
+	}
+	if !strings.HasPrefix(result, expectedTrailer) {
+		t.Fatalf("expected trailer to be prepended at the top, got %q", result)
+	}
+}
