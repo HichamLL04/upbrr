@@ -89,6 +89,7 @@ type ImageHostingConfig struct {
 	ImgBBAPI        string `yaml:"imgbb_api"`
 	LensdumpAPI     string `yaml:"lensdump_api"`
 	PTScreensAPI    string `yaml:"ptscreens_api"`
+	PTPImgAPI       string `yaml:"ptpimg_api"`
 	OnlyImageAPI    string `yaml:"onlyimage_api"`
 	DalexniAPI      string `yaml:"dalexni_api"`
 	PassTheImageAPI string `yaml:"passtheima_ge_api"`

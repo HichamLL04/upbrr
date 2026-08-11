@@ -20,6 +20,7 @@ import (
 	"github.com/autobrr/upbrr/internal/redaction"
 	"github.com/autobrr/upbrr/internal/trackerauth"
 	"github.com/autobrr/upbrr/internal/trackers"
+	"github.com/autobrr/upbrr/internal/trackers/impl/unit3d"
 
 	"github.com/autobrr/upbrr/pkg/api"
 )
@@ -159,7 +160,24 @@ func runInteractiveCLIPathWithInputAndLogger(ctx context.Context, coreSvc api.Co
 		approved = debugDryRunApprovedTrackers(resultByTracker, candidateTrackers)
 		ignoreDupesFor = appendTrackerRemovals(nil, approved...)
 	} else {
-		approved, ignoreDupesFor, ruleOverrides, err = promptTrackerDupeReview(reader, dupeSummary, req, candidateTrackers, nil)
+		namePreview := make(map[string]api.TrackerDryRunEntry)
+		preparedMeta := metadataPreviewToPrepared(metadataPreview)
+		for _, tr := range candidateTrackers {
+			trName := strings.ToUpper(strings.TrimSpace(tr))
+			if trName == "" {
+				continue
+			}
+			relName := unit3d.BuildUnit3DName(trName, preparedMeta, config.TrackerConfig{})
+			if relName == "" {
+				relName = metadataPreview.ReleaseName
+			}
+			namePreview[trName] = api.TrackerDryRunEntry{
+				Tracker:           trName,
+				ReleaseName:       relName,
+				UploadReleaseName: relName,
+			}
+		}
+		approved, ignoreDupesFor, ruleOverrides, err = promptTrackerDupeReview(reader, dupeSummary, req, candidateTrackers, metadataPreview, namePreview)
 		if err != nil {
 			return err
 		}
@@ -702,7 +720,21 @@ func runCLIDupeCheck(ctx context.Context, coreSvc api.Core, req api.Request) (ap
 	return summary, nil
 }
 
-func promptTrackerDupeReview(reader *bufio.Reader, summary api.DupeCheckSummary, req api.Request, trackers []string, namePreview map[string]api.TrackerDryRunEntry) ([]string, []string, []string, error) {
+func metadataPreviewToPrepared(preview api.MetadataPreview) api.PreparedMetadata {
+	if preview.PreparedMeta.SourcePath != "" || preview.PreparedMeta.ReleaseName != "" {
+		return preview.PreparedMeta
+	}
+	return api.PreparedMetadata{
+		SourcePath:           preview.SourcePath,
+		ReleaseName:          preview.ReleaseName,
+		ReleaseNameOverrides: preview.ReleaseNameOverrides,
+		ExternalIDs:          preview.ExternalIDs,
+		ExternalIDCandidates: preview.ExternalIDCandidates,
+		TrackerRuleFailures:  preview.TrackerRuleFailures,
+	}
+}
+
+func promptTrackerDupeReview(reader *bufio.Reader, summary api.DupeCheckSummary, req api.Request, trackers []string, metaPreview api.MetadataPreview, namePreview map[string]api.TrackerDryRunEntry) ([]string, []string, []string, error) {
 	resultByTracker := mapDupeResultsByTracker(summary)
 	approved := make([]string, 0, len(trackers))
 	ignoreDupesFor := make([]string, 0)
@@ -724,6 +756,19 @@ func promptTrackerDupeReview(reader *bufio.Reader, summary api.DupeCheckSummary,
 		}
 
 		fmt.Printf("\n[%s]\n", name)
+		relName := ""
+		if dryRun, ok := namePreview[name]; ok {
+			relName = dryRun.UploadReleaseName
+			if relName == "" {
+				relName = dryRun.ReleaseName
+			}
+		}
+		if relName == "" {
+			relName = metaPreview.ReleaseName
+		}
+		if relName != "" {
+			fmt.Printf("Title for %s: %s\n", name, colorizeTitle(relName))
+		}
 		if hasResult {
 			printDupeResult(result)
 		} else {
@@ -1244,7 +1289,7 @@ func printMetadataPreview(preview api.MetadataPreview, debug bool) {
 		fmt.Println("Debug mode: no actual tracker uploads will be processed.")
 	}
 	fmt.Printf("Source: %s\n", formatPathLabel(preview.SourcePath))
-	fmt.Printf("Upload name: %s\n", preview.ReleaseName)
+	fmt.Printf("Upload name: %s\n", colorizeTitle(preview.ReleaseName))
 	if external := primaryMetadataPreview(preview); external != nil {
 		printMetadataDatabaseInfo(*external, preview)
 	}
@@ -1483,7 +1528,7 @@ func writeDryRunSummary(w io.Writer, entry api.TrackerDryRunEntry) {
 	if change := trackerReleaseNameChangeLine(entry); change != "" {
 		fmt.Fprintf(w, "Tracker %s\n", change)
 	} else if entry.ReleaseName != "" {
-		fmt.Fprintf(w, "Tracker release name: %s\n", entry.ReleaseName)
+		fmt.Fprintf(w, "Tracker release name: %s\n", colorizeTitle(entry.ReleaseName))
 	}
 	if imageMessage := strings.TrimSpace(entry.ImageHost.Message); imageMessage != "" && (entry.ImageHost.Reuploaded || strings.EqualFold(entry.ImageHost.Status, "warning")) {
 		fmt.Fprintf(w, "Images: %s\n", imageMessage)
@@ -1695,11 +1740,32 @@ func trackerReleaseNameChangeLine(entry api.TrackerDryRunEntry) string {
 	if uploadName == "" {
 		uploadName = "(unknown)"
 	}
-	line := fmt.Sprintf("release name changed: %s -> %s", originalName, uploadName)
+	line := fmt.Sprintf("release name changed: %s -> %s", originalName, colorizeTitle(uploadName))
 	if reason := strings.TrimSpace(entry.ReleaseNameChangeReason); reason != "" {
 		line += fmt.Sprintf(" (reason: %s)", reason)
 	}
 	return line
+}
+
+func colorizeTitle(title string) string {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return ""
+	}
+	if !isTerminalColorSupported() {
+		return title
+	}
+	return "\033[1;36m" + title + "\033[0m"
+}
+
+func isTerminalColorSupported() bool {
+	if len(os.Args) > 0 {
+		exe := strings.ToLower(os.Args[0])
+		if strings.HasSuffix(exe, ".test") || strings.HasSuffix(exe, ".test.exe") || strings.Contains(exe, "\\_test\\") || strings.Contains(exe, "/_test/") {
+			return false
+		}
+	}
+	return true
 }
 
 // formatDryRunPayloadValue returns a log-safe preview for a dry-run payload

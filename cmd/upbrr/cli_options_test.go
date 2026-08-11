@@ -1520,3 +1520,20 @@ func TestParseCLIOptionsRejectsConflictingHashModes(t *testing.T) {
 		t.Fatal("expected conflicting nohash and rehash flags to fail")
 	}
 }
+
+func TestParseCLIOptionsServerPathFlags(t *testing.T) {
+	opts, visited, paths, err := parseCLIOptions([]string{"--server-path", "/home/seedbox/downloads", "--local-path", "C:\\Downloads", "movie.mkv"})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	req, err := buildCLIRequest(opts, visited, paths, 4)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	if req.ClientOverrides.RemotePath == nil || *req.ClientOverrides.RemotePath != "/home/seedbox/downloads" {
+		t.Fatalf("expected remote path override, got %#v", req.ClientOverrides.RemotePath)
+	}
+	if req.ClientOverrides.LocalPath == nil || *req.ClientOverrides.LocalPath != "C:\\Downloads" {
+		t.Fatalf("expected local path override, got %#v", req.ClientOverrides.LocalPath)
+	}
+}

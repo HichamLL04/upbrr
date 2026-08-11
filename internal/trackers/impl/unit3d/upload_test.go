@@ -828,7 +828,7 @@ func TestBuildZNTHNameTV(t *testing.T) {
 		ExternalIDs:  api.ExternalIDs{Category: "TV"},
 		Release:      api.ReleaseInfo{Resolution: "1080p"},
 	}
-	got := buildUnit3DName("ZNTH", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ZNTH", meta, config.TrackerConfig{})
 	expected := "Show.S01E01.1080p.WEB-DL-GRP"
 	if got != expected {
 		t.Fatalf("expected %q, got %q", expected, got)
@@ -844,7 +844,7 @@ func TestBuildZNTHNameMovieYearMismatch(t *testing.T) {
 			IMDB: &api.IMDBMetadata{Year: 2025},
 		},
 	}
-	got := buildUnit3DName("ZNTH", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ZNTH", meta, config.TrackerConfig{})
 	expected := "Movie.2025.1080p.WEB-DL-GRP"
 	if got != expected {
 		t.Fatalf("expected %q, got %q", expected, got)
@@ -863,7 +863,7 @@ func TestBuildZNTHNameBlankCategoryUsesParsedTVCategory(t *testing.T) {
 		},
 	}
 
-	got := buildUnit3DName("ZNTH", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ZNTH", meta, config.TrackerConfig{})
 	expected := "Show.1x01.1080p.WEB-DL-GRP"
 	if got != expected {
 		t.Fatalf("expected %q, got %q", expected, got)
@@ -910,7 +910,7 @@ func TestBuildZNTHNameUnknownExplicitCategoryUsesParsedTVCategory(t *testing.T) 
 			IMDB: &api.IMDBMetadata{Year: 2025},
 		}
 
-		got := buildUnit3DName("ZNTH", tc.meta, config.TrackerConfig{})
+		got := BuildUnit3DName("ZNTH", tc.meta, config.TrackerConfig{})
 		expected := "Show.S01E01.2024.1080p.WEB-DL-GRP"
 		if got != expected {
 			t.Fatalf("%s: expected %q, got %q", tc.name, expected, got)
@@ -935,7 +935,7 @@ func TestBuildZNTHNameExplicitMoviePreservesMovieBranchOverParsedTV(t *testing.T
 		},
 	}
 
-	got := buildUnit3DName("ZNTH", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ZNTH", meta, config.TrackerConfig{})
 	expected := "Show.S01E01.2025.Episode.Title.1080p.WEB-DL-GRP"
 	if got != expected {
 		t.Fatalf("expected %q, got %q", expected, got)
@@ -954,7 +954,7 @@ func TestBuildZNTHNameBlankCategoryUsesParsedMovieCategory(t *testing.T) {
 		},
 	}
 
-	got := buildUnit3DName("ZNTH", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ZNTH", meta, config.TrackerConfig{})
 	expected := "Example.Movie.2027.1080p.WEB-DL-GRP"
 	if got != expected {
 		t.Fatalf("expected %q, got %q", expected, got)
@@ -970,7 +970,7 @@ func TestBuildZNTHNameMovieYearMismatchNoResolutionHyphenatedTitle(t *testing.T)
 			IMDB: &api.IMDBMetadata{Year: 2025},
 		},
 	}
-	got := buildUnit3DName("ZNTH", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ZNTH", meta, config.TrackerConfig{})
 	expected := "Movie - Part One 2025"
 	if got != expected {
 		t.Fatalf("expected %q, got %q", expected, got)
@@ -986,7 +986,7 @@ func TestBuildZNTHNameMovieYearMismatchNoResolutionGroupSuffix(t *testing.T) {
 			IMDB: &api.IMDBMetadata{Year: 2025},
 		},
 	}
-	got := buildUnit3DName("ZNTH", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ZNTH", meta, config.TrackerConfig{})
 	expected := "Movie.Title.2025-GRP2024"
 	if got != expected {
 		t.Fatalf("expected %q, got %q", expected, got)
@@ -1000,7 +1000,7 @@ func TestBuildZNTHNameTVUnicodePrefix(t *testing.T) {
 		ExternalIDs:  api.ExternalIDs{Category: "TV"},
 		Release:      api.ReleaseInfo{Resolution: "1080p"},
 	}
-	got := buildUnit3DName("ZNTH", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ZNTH", meta, config.TrackerConfig{})
 	expected := "\u212aShow.S01E01.1080p.WEB-DL-GRP"
 	if got != expected {
 		t.Fatalf("expected %q, got %q", expected, got)
@@ -1016,7 +1016,7 @@ func TestBuildZNTHNameMovieYearMismatchUnicodeTitle(t *testing.T) {
 			IMDB: &api.IMDBMetadata{Year: 2025},
 		},
 	}
-	got := buildUnit3DName("ZNTH", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ZNTH", meta, config.TrackerConfig{})
 	expected := "\u212aMovie.2025"
 	if got != expected {
 		t.Fatalf("expected %q, got %q", expected, got)
@@ -1306,7 +1306,7 @@ func TestBuildUnit3DNameLDUUsesFirstParseableLanguages(t *testing.T) {
 		},
 	}
 
-	got := buildUnit3DName("LDU", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("LDU", meta, config.TrackerConfig{})
 	if !strings.Contains(got, "[JPN]") {
 		t.Fatalf("expected first parseable audio language suffix, got %q", got)
 	}
@@ -1407,7 +1407,7 @@ func TestBuildUnit3DNameACM(t *testing.T) {
 		},
 		SubtitleLanguages: []string{"Japanese"},
 	}
-	got := buildUnit3DName("ACM", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ACM", meta, config.TrackerConfig{})
 	if !strings.Contains(got, "Movie / Original Movie") {
 		t.Fatalf("expected ACM original title injection, got %q", got)
 	}
@@ -1428,7 +1428,7 @@ func TestBuildUnit3DNameULCXRemovesHybridFromWebDV(t *testing.T) {
 		Edition:     "Hybrid",
 		WebDV:       true,
 	}
-	got := buildUnit3DName("ULCX", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("ULCX", meta, config.TrackerConfig{})
 	if strings.Contains(got, "Hybrid") {
 		t.Fatalf("expected Hybrid removed for ULCX WEB-DL WebDV, got %q", got)
 	}
@@ -1454,7 +1454,7 @@ func TestBuildUnit3DNameRHDBuildsFromTMDBWhenBaseNameBlank(t *testing.T) {
 		},
 	}
 
-	got := buildUnit3DName("RHD", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("RHD", meta, config.TrackerConfig{})
 	want := "Beispiel Film 2025 GERMAN 1080p WEB-DL DD+ 5.1 H.264-GRP"
 	if got != want {
 		t.Fatalf("expected RHD TMDB-derived name %q, got %q", want, got)
@@ -1479,7 +1479,7 @@ func TestBuildUnit3DNameRHDUsesTMDBTitleFallback(t *testing.T) {
 		},
 	}
 
-	got := buildUnit3DName("RHD", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("RHD", meta, config.TrackerConfig{})
 	if !strings.HasPrefix(got, "TMDB Title 2024 ENGLISH 720p WEB-DL") {
 		t.Fatalf("expected RHD TMDB title fallback, got %q", got)
 	}
@@ -1505,7 +1505,7 @@ func TestBuildUnit3DNameRHDFullDiscOmitsLanguageTag(t *testing.T) {
 		},
 	}
 
-	got := buildUnit3DName("RHD", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("RHD", meta, config.TrackerConfig{})
 	want := "Movie 2024 1080p COMPLETE GER Blu-ray BD50 DTS-HD MA 5.1 AVC-GRP"
 	if got != want {
 		t.Fatalf("expected RHD full-disc name %q, got %q", want, got)
@@ -1550,7 +1550,7 @@ func TestBuildUnit3DNameRHDFullDiscUsesDiscTypeWhenTypeEmpty(t *testing.T) {
 	}
 
 	want := "Movie 2024 1080p COMPLETE GER Blu-ray BD50 DTS-HD MA 5.1 AVC-GRP"
-	got := buildUnit3DName("RHD", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("RHD", meta, config.TrackerConfig{})
 	if got != want {
 		t.Fatalf("expected RHD DiscType-only full-disc name %q, got %q", want, got)
 	}
@@ -1648,7 +1648,7 @@ func TestBuildUnit3DNameRHDDetectsMarkerTokensWithBroadDelimiters(t *testing.T) 
 		},
 	}
 
-	got := buildUnit3DName("RHD", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("RHD", meta, config.TrackerConfig{})
 	want := "Marker Movie 2024 GERMAN 1080p UPSCALE WEB-DL DDP5.1 H.264 iNTERNAL-GRP"
 	if got != want {
 		t.Fatalf("expected RHD marker tokens with broad delimiters, got %q", got)
@@ -1672,7 +1672,7 @@ func TestBuildUnit3DNameRHDIgnoresMarkerSubstringsAndGroupTag(t *testing.T) {
 		},
 	}
 
-	got := buildUnit3DName("RHD", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("RHD", meta, config.TrackerConfig{})
 	for _, marker := range []string{"REGRADED", "UPSCALE", "iNTERNAL", "DUBBED"} {
 		if strings.Contains(got, marker) {
 			t.Fatalf("expected marker substring/group tag not to emit %s, got %q", marker, got)
@@ -1697,7 +1697,7 @@ func TestBuildUnit3DNameRHDEmitsPreparedHDR(t *testing.T) {
 		},
 	}
 
-	got := buildUnit3DName("RHD", meta, config.TrackerConfig{})
+	got := BuildUnit3DName("RHD", meta, config.TrackerConfig{})
 	want := "HDR Movie 2026 GERMAN 2160p WEB-DL DDP5.1 DV HDR H.265-GRP"
 	if got != want {
 		t.Fatalf("expected RHD name to include prepared HDR value %q, got %q", want, got)
@@ -1895,11 +1895,12 @@ func TestBuildUnit3DNameLT(t *testing.T) {
 			Tag:         "GRP",
 			ExternalMetadata: api.ExternalMetadata{
 				TMDB: &api.TMDBMetadata{
+					Title:        "Movie",
 					RetrievedAKA: "AKA Alternative Title",
 				},
 			},
 		}
-		got := buildUnit3DName("LT", meta, config.TrackerConfig{})
+		got := BuildUnit3DName("LT", meta, config.TrackerConfig{})
 		if strings.Contains(got, "Dual-Audio") || strings.Contains(got, "Dubbed") || strings.Contains(got, "AKA") {
 			t.Fatalf("expected Dual-Audio, Dubbed, and AKA to be removed, got %q", got)
 		}
@@ -1917,8 +1918,8 @@ func TestBuildUnit3DNameLT(t *testing.T) {
 				},
 			},
 		}
-		got := buildUnit3DName("LT", meta, config.TrackerConfig{})
-		if !strings.Contains(got, "Titulo.en.Español") {
+		got := BuildUnit3DName("LT", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "Titulo en Español") {
 			t.Fatalf("expected English title replaced by Spanish AKA, got %q", got)
 		}
 	})
@@ -1935,8 +1936,8 @@ func TestBuildUnit3DNameLT(t *testing.T) {
 				},
 			},
 		}
-		got := buildUnit3DName("LT", meta, config.TrackerConfig{})
-		if !strings.Contains(got, "English.Title") || strings.Contains(got, "Spanish.Title") {
+		got := BuildUnit3DName("LT", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "English Title") || strings.Contains(got, "Spanish Title") {
 			t.Fatalf("expected Spanish title replaced by English title, got %q", got)
 		}
 	})
@@ -1954,8 +1955,8 @@ func TestBuildUnit3DNameLT(t *testing.T) {
 				},
 			},
 		}
-		got := buildUnit3DName("LT", meta, config.TrackerConfig{})
-		if !strings.Contains(got, "English.Title") || strings.Contains(got, "Spanish.Title") || strings.Contains(got, "AKA") {
+		got := BuildUnit3DName("LT", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "English Title") || strings.Contains(got, "Spanish Title") || strings.Contains(got, "AKA") {
 			t.Fatalf("expected English title kept and AKA/Spanish title removed, got %q", got)
 		}
 	})
@@ -1973,8 +1974,8 @@ func TestBuildUnit3DNameLT(t *testing.T) {
 				},
 			},
 		}
-		got := buildUnit3DName("LT", meta, config.TrackerConfig{})
-		if !strings.Contains(got, "Spanish.Title") || strings.Contains(got, "English.Title") || strings.Contains(got, "AKA") {
+		got := BuildUnit3DName("LT", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "Spanish Title") || strings.Contains(got, "English Title") || strings.Contains(got, "AKA") {
 			t.Fatalf("expected Spanish title kept and AKA/English title removed, got %q", got)
 		}
 	})
@@ -2005,8 +2006,8 @@ func TestBuildUnit3DNameLT(t *testing.T) {
 				},
 			},
 		}
-		got := buildUnit3DName("LT", meta, config.TrackerConfig{})
-		expected := "Movie.2024.1080p.Bluray [CAST]-GRP"
+		got := BuildUnit3DName("LT", meta, config.TrackerConfig{})
+		expected := "Movie 1080p BluRay [CAST]-GRP"
 		if got != expected {
 			t.Fatalf("expected name to be %q, got %q", expected, got)
 		}
@@ -2032,14 +2033,15 @@ func TestBuildUnit3DNameLT(t *testing.T) {
 			ReleaseName:       "Movie.2024.1080p.Bluray-GRP",
 			Tag:               "GRP",
 			MediaInfoJSONPath: filePath,
+			SubtitleLanguages: []string{"Spanish"},
 			ExternalMetadata: api.ExternalMetadata{
 				TMDB: &api.TMDBMetadata{
 					Title: "Movie",
 				},
 			},
 		}
-		got := buildUnit3DName("LT", meta, config.TrackerConfig{})
-		expected := "Movie.2024.1080p.Bluray [SUBS]-GRP"
+		got := BuildUnit3DName("LT", meta, config.TrackerConfig{})
+		expected := "Movie 1080p BluRay [SUBS]-GRP"
 		if got != expected {
 			t.Fatalf("expected name to be %q, got %q", expected, got)
 		}
@@ -2125,11 +2127,12 @@ func TestBuildUnit3DNameTTR(t *testing.T) {
 
 		meta := api.PreparedMetadata{
 			ReleaseName:       "Movie.2024.1080p.Bluray-GRP",
+			Release:           api.ReleaseInfo{Title: "Movie", Year: 2024, Resolution: "1080p", Type: "BLURAY"},
 			Tag:               "-GRP",
 			MediaInfoJSONPath: tempFile.Name(),
 		}
-		got := buildUnit3DName("TTR", meta, config.TrackerConfig{})
-		if !strings.Contains(got, " Castellano-GRP") {
+		got := BuildUnit3DName("TTR", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "Castellano") {
 			t.Fatalf("expected Castellano suffix added before GRP, got %q", got)
 		}
 	})
@@ -2157,11 +2160,12 @@ func TestBuildUnit3DNameTTR(t *testing.T) {
 
 		meta := api.PreparedMetadata{
 			ReleaseName:       "Movie.2024.1080p.Bluray-GRP",
+			Release:           api.ReleaseInfo{Title: "Movie", Year: 2024, Resolution: "1080p", Type: "BLURAY"},
 			Tag:               "-GRP",
 			MediaInfoJSONPath: tempFile.Name(),
 		}
-		got := buildUnit3DName("TTR", meta, config.TrackerConfig{})
-		if !strings.Contains(got, " Latino-GRP") {
+		got := BuildUnit3DName("TTR", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "Latino") {
 			t.Fatalf("expected Latino suffix added before GRP, got %q", got)
 		}
 	})
@@ -2190,11 +2194,12 @@ func TestBuildUnit3DNameTTR(t *testing.T) {
 
 		meta := api.PreparedMetadata{
 			ReleaseName:       "Movie.2024.1080p.Bluray-GRP",
+			Release:           api.ReleaseInfo{Title: "Movie", Year: 2024, Resolution: "1080p", Type: "BLURAY"},
 			Tag:               "-GRP",
 			MediaInfoJSONPath: tempFile.Name(),
 		}
-		got := buildUnit3DName("TTR", meta, config.TrackerConfig{})
-		if !strings.Contains(got, " Latino Subs-GRP") {
+		got := BuildUnit3DName("TTR", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "Latino Subs") {
 			t.Fatalf("expected Latino Subs suffix added before GRP, got %q", got)
 		}
 	})

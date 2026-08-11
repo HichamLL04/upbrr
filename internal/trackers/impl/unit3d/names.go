@@ -45,7 +45,7 @@ var (
 	castilianKeywords = []string{"castellano"}
 )
 
-func buildUnit3DName(tracker string, meta api.PreparedMetadata, cfg config.TrackerConfig) string {
+func BuildUnit3DName(tracker string, meta api.PreparedMetadata, cfg config.TrackerConfig) string {
 	trackerName := strings.ToUpper(strings.TrimSpace(tracker))
 	if trackerName == "RHD" {
 		return buildRHDName(meta)
@@ -65,12 +65,14 @@ func buildUnit3DName(tracker string, meta api.PreparedMetadata, cfg config.Track
 		return BuildCBRName(meta, cfg.TagForCustomRelease)
 	case "DP":
 		return buildDPName(name, meta)
+	case "EMUW":
+		return BuildEMUWName(meta, cfg.TagForCustomRelease)
 	case "LCD":
 		return BuildCBRName(meta, cfg.TagForCustomRelease)
 	case "LDU":
 		return buildLDUName(name, meta)
 	case "LT":
-		return buildLTName(name, meta)
+		return BuildLTName(meta, cfg.TagForCustomRelease)
 	case "RF":
 		return addNoGroupSuffix(name, meta, "NoGroup")
 	case "SAM":
@@ -78,14 +80,44 @@ func buildUnit3DName(tracker string, meta api.PreparedMetadata, cfg config.Track
 	case "OE":
 		return addNoGroupSuffix(name, meta, "NOGRP")
 	case "TTR":
-		return buildTTRName(name, meta)
+		return BuildTTRName(meta, cfg.TagForCustomRelease)
 	case "ULCX":
 		return buildULCXName(name, meta)
 	case "ZNTH":
 		return buildZNTHName(name, meta)
 	default:
-		return name
+		return cleanUnit3DStandardName(name, meta)
 	}
+}
+
+func formatSeasonEpisodeToken(meta api.PreparedMetadata, rawName string) string {
+	season, episode := meta.SeasonEpisodeWithParsedFallback()
+	if season > 0 && episode > 0 {
+		return fmt.Sprintf("S%02dE%02d", season, episode)
+	}
+	if epStr := strings.ToUpper(strings.TrimSpace(meta.EpisodeStr)); strings.HasPrefix(epStr, "S") && strings.Contains(epStr, "E") {
+		return epStr
+	}
+	if season > 0 {
+		return fmt.Sprintf("S%02d", season)
+	}
+	if episode > 0 {
+		return fmt.Sprintf("E%02d", episode)
+	}
+	if epToken := detectLTEpisodeToken(rawName); epToken != "" {
+		return epToken
+	}
+	if sToken := detectLTSeasonToken(rawName); sToken != "" {
+		return sToken
+	}
+	return ""
+}
+
+func cleanUnit3DStandardName(name string, meta api.PreparedMetadata) string {
+	if meta.EpisodeTitle != "" {
+		name = strings.ReplaceAll(name, meta.EpisodeTitle, "")
+	}
+	return strings.TrimSpace(strings.Join(strings.Fields(name), " "))
 }
 
 func baseReleaseName(meta api.PreparedMetadata) string {

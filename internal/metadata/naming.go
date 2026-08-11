@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/autobrr/upbrr/internal/pathutil"
 	"github.com/autobrr/upbrr/pkg/api"
@@ -79,6 +80,7 @@ func BuildReleaseName(req api.ReleaseNameRequest, logger api.Logger) api.Release
 			episodeTitle = dailyDate
 		}
 	}
+	_ = episodeTitle
 	if req.NoSeason {
 		season = ""
 		episode = ""
@@ -160,22 +162,22 @@ func BuildReleaseName(req api.ReleaseNameRequest, logger api.Logger) api.Release
 				missing = []string{"edition", "region", "distributor"}
 			}
 		case matchType == "REMUX" && sourceIn(source, "BluRay", "HDDVD"):
-			name = joinParts(title, yearValue, altTitle, seasonEpisode, episodeTitle, part, threeD, edition, hybrid, repack, resolution, uhd, source, "REMUX", hdr, videoCodec, audio)
+			name = joinParts(title, yearValue, altTitle, seasonEpisode, part, threeD, edition, hybrid, repack, resolution, uhd, source, "REMUX", hdr, videoCodec, audio)
 			missing = []string{"edition", "description"}
 		case matchType == "REMUX" && sourceIn(source, "PAL DVD", "NTSC DVD", "DVD"):
-			name = joinParts(title, yearValue, altTitle, seasonEpisode, episodeTitle, part, edition, repack, source, "REMUX", audio)
+			name = joinParts(title, yearValue, altTitle, seasonEpisode, part, edition, repack, source, "REMUX", audio)
 			missing = []string{"edition", "description"}
 		case matchType == "ENCODE":
-			name = joinParts(title, yearValue, altTitle, seasonEpisode, episodeTitle, part, edition, hybrid, repack, resolution, uhd, source, audio, hdr, videoName)
+			name = joinParts(title, yearValue, altTitle, seasonEpisode, part, edition, hybrid, repack, resolution, uhd, source, audio, hdr, videoName)
 			missing = []string{"edition", "description"}
 		case matchType == "WEBDL":
-			name = joinParts(title, yearValue, altTitle, seasonEpisode, episodeTitle, part, edition, hybrid, repack, resolution, uhd, service, "WEB-DL", audio, hdr, videoName)
+			name = joinParts(title, yearValue, altTitle, seasonEpisode, part, edition, hybrid, repack, resolution, uhd, service, "WEB-DL", audio, hdr, videoName)
 			missing = []string{"edition", "service"}
 		case matchType == "WEBRIP":
-			name = joinParts(title, yearValue, altTitle, seasonEpisode, episodeTitle, part, edition, hybrid, repack, resolution, uhd, service, "WEBRip", audio, hdr, videoName)
+			name = joinParts(title, yearValue, altTitle, seasonEpisode, part, edition, hybrid, repack, resolution, uhd, service, "WEBRip", audio, hdr, videoName)
 			missing = []string{"edition", "service"}
 		case matchType == "HDTV":
-			name = joinParts(title, yearValue, altTitle, seasonEpisode, episodeTitle, part, edition, repack, resolution, source, audio, videoName)
+			name = joinParts(title, yearValue, altTitle, seasonEpisode, part, edition, repack, resolution, source, audio, videoName)
 		case matchType == "DVDRIP":
 			name = joinParts(title, yearValue, altTitle, season, source, "DVDRip", audio, videoName)
 		}
@@ -331,17 +333,19 @@ func resolveReleaseNameTitle(category string, meta api.PreparedMetadata) (string
 
 	if isTV && meta.ExternalMetadata.TVDB != nil {
 		tvdb := meta.ExternalMetadata.TVDB
-		if strings.TrimSpace(tvdb.NameEnglish) != "" {
+		if strings.TrimSpace(tvdb.NameEnglish) != "" && !isNonLatinTitleText(tvdb.NameEnglish) {
 			title = strings.TrimSpace(tvdb.NameEnglish)
-		} else if strings.TrimSpace(tvdb.Name) != "" {
+		} else if strings.TrimSpace(tvdb.Name) != "" && !isNonLatinTitleText(tvdb.Name) {
 			title = strings.TrimSpace(tvdb.Name)
 		}
-		if tvdb.Year > 0 && tvdb.YearFromAlias {
-			year = tvdb.Year
-		} else {
-			year = 0
+		if title != "" {
+			if tvdb.Year > 0 && tvdb.YearFromAlias {
+				year = tvdb.Year
+			} else {
+				year = 0
+			}
+			return title, altTitle, year
 		}
-		return title, altTitle, year
 	}
 
 	switch {
@@ -674,4 +678,13 @@ func isWebSourceValue(source string) bool {
 	upper = strings.ReplaceAll(upper, " ", "")
 	upper = strings.ReplaceAll(upper, "_", "")
 	return upper == "WEB" || upper == "WEBDL" || upper == "WEBRIP"
+}
+
+func isNonLatinTitleText(s string) bool {
+	for _, r := range s {
+		if unicode.Is(unicode.Han, r) || unicode.Is(unicode.Hiragana, r) || unicode.Is(unicode.Katakana, r) || unicode.Is(unicode.Hangul, r) {
+			return true
+		}
+	}
+	return false
 }

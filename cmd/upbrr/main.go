@@ -297,6 +297,16 @@ func run() error {
 		}
 	}
 
+	if opts.TL {
+		if len(paths) == 0 {
+			return exitError(2, errors.New("-tl requires at least one input path"))
+		}
+		if err := runTorrentland(ctx, coreSvc, paths[0], opts, cfg); err != nil {
+			return exitError(1, err)
+		}
+		return nil
+	}
+
 	// Handle BDMV playlist selection before upload. Pass the root cancelable ctx
 	// (not setupCtx): handleBDMVPlaylistSelection applies its own per-disc
 	// deadline internally and must keep the interactive prompt on an

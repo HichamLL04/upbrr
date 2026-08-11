@@ -3468,6 +3468,7 @@ func deepCopyMetadataOverrides(overrides api.MetadataOverrides) api.MetadataOver
 		WebDV:            clonePtr(overrides.WebDV),
 		StreamOptimized:  clonePtr(overrides.StreamOptimized),
 		Anime:            clonePtr(overrides.Anime),
+		IA:               clonePtr(overrides.IA),
 	}
 }
 
@@ -3497,6 +3498,8 @@ func deepCopyClientOverrides(overrides api.ClientOverrides) api.ClientOverrides 
 		QbitCategory: clonePtr(overrides.QbitCategory),
 		QbitTag:      clonePtr(overrides.QbitTag),
 		ForceRecheck: clonePtr(overrides.ForceRecheck),
+		LocalPath:    clonePtr(overrides.LocalPath),
+		RemotePath:   clonePtr(overrides.RemotePath),
 	}
 }
 
@@ -4250,6 +4253,7 @@ func buildMetadataPreview(meta api.PreparedMetadata, cfg config.Config) api.Meta
 		Bluray:               deepCopyBlurayMetadata(meta.ExternalMetadata.Bluray),
 		TrackerData:          buildTrackerPreview(meta.TrackerData, cfg),
 		TrackerRuleFailures:  deepCopyTrackerRuleFailures(meta.TrackerRuleFailures),
+		PreparedMeta:         meta,
 	}
 }
 
@@ -4449,6 +4453,9 @@ func overrideSignature(
 	if metadataOverrides.Anime != nil {
 		parts = append(parts, fmt.Sprintf("anime=%t", *metadataOverrides.Anime))
 	}
+	if metadataOverrides.IA != nil {
+		parts = append(parts, fmt.Sprintf("ia=%t", *metadataOverrides.IA))
+	}
 	if trackerOverrides.Anon != nil {
 		parts = append(parts, fmt.Sprintf("anon=%t", *trackerOverrides.Anon))
 	}
@@ -4484,6 +4491,12 @@ func overrideSignature(
 	}
 	if clientOverrides.ForceRecheck != nil {
 		parts = append(parts, fmt.Sprintf("forceRecheck=%t", *clientOverrides.ForceRecheck))
+	}
+	if clientOverrides.RemotePath != nil {
+		parts = append(parts, "remotePath="+strings.TrimSpace(*clientOverrides.RemotePath))
+	}
+	if clientOverrides.LocalPath != nil {
+		parts = append(parts, "localPath="+strings.TrimSpace(*clientOverrides.LocalPath))
 	}
 	if torrentOverrides.InfoHash != nil {
 		parts = append(parts, "infohash="+strings.ToLower(strings.TrimSpace(*torrentOverrides.InfoHash)))

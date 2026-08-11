@@ -97,7 +97,7 @@ func (s *Service) Inject(ctx context.Context, meta api.PreparedMetadata, torrent
 	injected := false
 	skippedURLOnlyClients := 0
 	for _, name := range clientNames {
-		client := applyClientOverrides(clients[name], clientOverrides)
+		client := applyClientOverrides(clients[name], clientOverrides, meta)
 		clientType := strings.ToLower(strings.TrimSpace(client.ClientType()))
 		s.logger.Debugf("clients: processing client name=%s type=%s", name, clientType)
 		// Watch folders can still consume a local torrent file when URL metadata
@@ -609,7 +609,7 @@ func isURLCapableTorrentClient(client config.TorrentClientConfig) bool {
 	}
 }
 
-func applyClientOverrides(client config.TorrentClientConfig, overrides api.ClientOverrides) config.TorrentClientConfig {
+func applyClientOverrides(client config.TorrentClientConfig, overrides api.ClientOverrides, meta api.PreparedMetadata) config.TorrentClientConfig {
 	if overrides.QbitCategory != nil {
 		client.Category = strings.TrimSpace(*overrides.QbitCategory)
 		client.QbitCategoryValue = strings.TrimSpace(*overrides.QbitCategory)
@@ -619,6 +619,22 @@ func applyClientOverrides(client config.TorrentClientConfig, overrides api.Clien
 		client.Tags = nil
 		client.QbitTagsValue = nil
 		client.QbitTag = trimmed
+	}
+	if overrides.RemotePath != nil {
+		remote := strings.TrimSpace(*overrides.RemotePath)
+		if remote != "" {
+			local := ""
+			if overrides.LocalPath != nil {
+				local = strings.TrimSpace(*overrides.LocalPath)
+			}
+			if local == "" && strings.TrimSpace(meta.SourcePath) != "" {
+				local = filepath.Dir(meta.SourcePath)
+			}
+			if local != "" {
+				client.LocalPath = append([]string{local}, client.LocalPath...)
+				client.RemotePath = append([]string{remote}, client.RemotePath...)
+			}
+		}
 	}
 	return client
 }

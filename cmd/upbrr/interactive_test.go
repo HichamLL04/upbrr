@@ -1048,6 +1048,7 @@ func TestPromptTrackerDupeReviewBuildsConfirmedTrackerList(t *testing.T) {
 		}},
 		api.Request{Options: api.UploadOptions{InteractionMode: api.InteractionModeInteractive}},
 		[]string{"ANT", "BLU", "NBL"},
+		api.MetadataPreview{},
 		nil,
 	)
 	if err != nil {
@@ -1080,6 +1081,7 @@ func TestPromptTrackerDupeReviewSkipsPathedTorrentMatches(t *testing.T) {
 		}},
 		api.Request{Options: api.UploadOptions{InteractionMode: api.InteractionModeInteractive}},
 		[]string{"BHD", "DP", "ANT"},
+		api.MetadataPreview{},
 		nil,
 	)
 	if err != nil {
@@ -1108,6 +1110,7 @@ func TestPromptTrackerDupeReviewAllowsRuleCheckOverrides(t *testing.T) {
 		}},
 		api.Request{Options: api.UploadOptions{InteractionMode: api.InteractionModeInteractive}},
 		[]string{"NBL", "OTW", "ANT"},
+		api.MetadataPreview{},
 		nil,
 	)
 	if err != nil {
@@ -1142,6 +1145,7 @@ func TestPromptTrackerDupeReviewApprovesUserSkippedDupeChecksInUnattendedMode(t 
 		summary,
 		req,
 		req.Trackers,
+		api.MetadataPreview{},
 		nil,
 	)
 	if err != nil {
@@ -1215,6 +1219,7 @@ func TestPromptTrackerDupeReviewGroupsUnattendedOutput(t *testing.T) {
 			summary,
 			req,
 			req.Trackers,
+			api.MetadataPreview{},
 			nil,
 		)
 	})
@@ -1272,6 +1277,7 @@ func TestPromptTrackerDupeReviewSkipsAllRuleBlockedTrackersUnattended(t *testing
 		summary,
 		req,
 		req.Trackers,
+		api.MetadataPreview{},
 		nil,
 	)
 	if err != nil {
@@ -1292,6 +1298,7 @@ func TestPromptTrackerDupeReviewShowsTrackerNamingChange(t *testing.T) {
 			api.DupeCheckSummary{Results: []api.DupeCheckResult{{Tracker: "AITHER", Status: "completed"}}},
 			api.Request{Options: api.UploadOptions{InteractionMode: api.InteractionModeInteractive}},
 			[]string{"AITHER"},
+			api.MetadataPreview{},
 			map[string]api.TrackerDryRunEntry{
 				"AITHER": {
 					ReleaseNameChanged:  true,

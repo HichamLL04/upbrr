@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -192,6 +193,7 @@ type PreparedMetadata struct {
 	Audio                       string
 	Channels                    string
 	HasCommentary               bool
+	HasIA                       bool
 	Is3D                        string
 	Source                      string
 	Type                        string
@@ -238,8 +240,25 @@ func (m PreparedMetadata) SeasonEpisodeWithParsedFallback() (int, int) {
 	if season <= 0 {
 		season = m.Release.Season
 	}
+	if season <= 0 && m.SeasonStr != "" {
+		s := strings.TrimPrefix(strings.ToUpper(strings.TrimSpace(m.SeasonStr)), "S")
+		if val, err := strconv.Atoi(s); err == nil {
+			season = val
+		}
+	}
 	if episode <= 0 {
 		episode = m.Release.Episode
+	}
+	if episode <= 0 && m.EpisodeStr != "" {
+		ep := strings.ToUpper(strings.TrimSpace(m.EpisodeStr))
+		if idx := strings.LastIndex(ep, "E"); idx != -1 {
+			ep = ep[idx+1:]
+		} else if strings.HasPrefix(ep, "S") {
+			ep = strings.TrimPrefix(ep, "S")
+		}
+		if val, err := strconv.Atoi(ep); err == nil {
+			episode = val
+		}
 	}
 	return season, episode
 }
@@ -259,6 +278,7 @@ type MetadataOverrides struct {
 	WebDV            *bool
 	StreamOptimized  *bool
 	Anime            *bool
+	IA               *bool
 }
 
 type ClientOverrides struct {
@@ -266,6 +286,8 @@ type ClientOverrides struct {
 	QbitCategory *string
 	QbitTag      *string
 	ForceRecheck *bool
+	LocalPath    *string
+	RemotePath   *string
 }
 
 type ImageHostOverrides struct {

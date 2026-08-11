@@ -26,6 +26,7 @@ type MetadataPreview struct {
 	// TrackerRuleFailures is keyed by normalized tracker code and contains
 	// upload rule failures known at preview time.
 	TrackerRuleFailures map[string][]RuleFailure
+	PreparedMeta        PreparedMetadata
 }
 
 type DescriptionBuilderPreview struct {

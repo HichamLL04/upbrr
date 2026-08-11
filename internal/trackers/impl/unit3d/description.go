@@ -25,6 +25,22 @@ func buildUnit3DDescription(ctx context.Context, tracker string, meta api.Prepar
 	if strings.EqualFold(strings.TrimSpace(tracker), "SHRI") {
 		return applySHRIDescriptionNotes(description, meta), nil
 	}
+	if strings.EqualFold(strings.TrimSpace(tracker), "LT") {
+		if hasIAToken(meta) {
+			group := resolveLTGroupTag(meta.ReleaseName, meta, trackerConfig.TagForCustomRelease)
+			groupName := "GapMoe"
+			if group != "" {
+				cleanGroup := strings.TrimSuffix(strings.TrimSuffix(group, "-IA"), "-ia")
+				cleanGroup = strings.TrimSuffix(strings.TrimSuffix(cleanGroup, "-Ia"), "-iA")
+				cleanGroup = strings.TrimSpace(cleanGroup)
+				if cleanGroup != "" {
+					groupName = cleanGroup
+				}
+			}
+			note := fmt.Sprintf("[center][note]Este aporte de %s uso IA para la traducción[/note][/center]", groupName)
+			description = note + "\n\n" + description
+		}
+	}
 	if strings.EqualFold(strings.TrimSpace(tracker), "EMUW") {
 		var youtubeURL string
 		if meta.ExternalMetadata.TMDB != nil {
@@ -65,4 +81,23 @@ func extractYouTubeID(urlStr string) string {
 		return strings.TrimPrefix(u.Path, "/v/")
 	}
 	return u.Query().Get("v")
+}
+
+func hasIAToken(meta api.PreparedMetadata) bool {
+	if meta.HasIA {
+		return true
+	}
+	tag := strings.ToLower(strings.TrimSpace(meta.Tag))
+	if strings.Contains(tag, "ia") {
+		return true
+	}
+	group := strings.ToLower(strings.TrimSpace(meta.Release.Group))
+	if strings.Contains(group, "ia") {
+		return true
+	}
+	rawUpper := strings.ToUpper(meta.ReleaseName)
+	if strings.Contains(rawUpper, "-IA") || strings.HasSuffix(rawUpper, " IA") || strings.Contains(rawUpper, " IA-") {
+		return true
+	}
+	return false
 }

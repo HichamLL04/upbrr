@@ -345,6 +345,9 @@ func applyMetadataOverrides(meta *api.PreparedMetadata) {
 	if overrides.Anime != nil {
 		meta.Anime = *overrides.Anime
 	}
+	if overrides.IA != nil {
+		meta.HasIA = *overrides.IA
+	}
 }
 
 func applyOriginalLanguageOverride(meta *api.PreparedMetadata, language *string) {

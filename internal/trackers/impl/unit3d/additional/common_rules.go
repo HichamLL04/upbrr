@@ -169,7 +169,10 @@ func checkTTRSubtitleOnly(ctx context.Context, meta api.PreparedMetadata, _ api.
 	default:
 	}
 
-	if !containsAny(normalizeStrings(meta.Release.Language), []string{"spanish", "es", "spa"}) {
+	langs := append([]string{}, meta.AudioLanguages...)
+	langs = append(langs, meta.SubtitleLanguages...)
+	langs = append(langs, meta.Release.Language...)
+	if !containsAny(normalizeStrings(langs), []string{"spanish", "es", "spa", "castellano", "castilian", "latino", "latin"}) {
 		return Fail("TTR requires at least one Spanish audio or subtitle track.")
 	}
 	return Pass()

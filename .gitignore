@@ -32,6 +32,7 @@ gui/frontend/.eslintcache
 gui/frontend/node_modules/.cache/prettier/
 
 # App Configs
+config.yaml
 /config/*.yaml
 /config/*.yml
 /config.converted.yaml
