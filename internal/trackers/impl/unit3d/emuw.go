@@ -241,7 +241,10 @@ func resolveEMUWFormat(rawName string, meta api.PreparedMetadata) string {
 
 func resolveEMUWEdition(rawName string, meta api.PreparedMetadata) string {
 	upper := strings.ToUpper(rawName)
-	if strings.Contains(upper, "HYBRID") || meta.WebDV || strings.Contains(strings.ToUpper(meta.Edition), "HYBRID") || strings.Contains(upper, "CUSTOM") || strings.Contains(strings.ToUpper(meta.Edition), "CUSTOM") {
+	sourceUpper := strings.ToUpper(meta.SourcePath)
+	cleanUpper := strings.ToUpper(meta.ReleaseNameClean)
+	editionUpper := strings.ToUpper(meta.Edition)
+	if strings.Contains(upper, "HYBRID") || strings.Contains(sourceUpper, "HYBRID") || strings.Contains(cleanUpper, "HYBRID") || meta.WebDV || strings.Contains(editionUpper, "HYBRID") || strings.Contains(upper, "CUSTOM") || strings.Contains(sourceUpper, "CUSTOM") || strings.Contains(cleanUpper, "CUSTOM") || strings.Contains(editionUpper, "CUSTOM") {
 		return "CUSTOM"
 	}
 	return ""
