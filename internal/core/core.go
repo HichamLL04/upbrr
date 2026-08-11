@@ -3098,6 +3098,14 @@ func (c *Core) getDupeCache(path string, signature string) (api.PreparedMetadata
 }
 
 func (c *Core) getGUICachedMetaEntry(path string, signature string, overrides api.ExternalIDOverrides) (dupeCacheEntry, bool) {
+	c.dupeMu.Lock()
+	if entry, ok := c.dupeCache[path]; ok {
+		if info, err := os.Stat(path); err == nil && info.ModTime().After(entry.updatedAt) {
+			delete(c.dupeCache, path)
+		}
+	}
+	c.dupeMu.Unlock()
+
 	if strings.TrimSpace(signature) != "" {
 		c.dupeMu.RLock()
 		entry, ok := c.dupeCache[path]

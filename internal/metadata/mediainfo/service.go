@@ -91,22 +91,30 @@ func (s *Service) Export(ctx context.Context, req Request) (Result, error) {
 		s.logger.Debugf("mediainfo: checking cache at %s (text=%v json=%v)", tmpDir, fileExists(textPath), fileExists(jsonPath))
 	}
 	if fileExists(textPath) && fileExists(jsonPath) {
-		hasErrors, err := conformanceError(jsonPath, req.DiscType)
-		if err == nil && !hasErrors {
-			vobText, vobJSON, err := analyzeVOB(ctx, s.analyzer, target.VOBPath)
-			if err != nil {
-				return Result{}, err
+		if isMediaInfoCacheStale(target.AnalyzePath, textPath, jsonPath) {
+			if s.logger != nil {
+				s.logger.Infof("mediainfo: source media modified after cached mediainfo was created, regenerating: %s", target.AnalyzePath)
+			}
+			_ = os.Remove(textPath)
+			_ = os.Remove(jsonPath)
+		} else {
+			hasErrors, err := conformanceError(jsonPath, req.DiscType)
+			if err == nil && !hasErrors {
+				vobText, vobJSON, err := analyzeVOB(ctx, s.analyzer, target.VOBPath)
+				if err != nil {
+					return Result{}, err
+				}
+				if s.logger != nil {
+					s.logger.Debugf("mediainfo: reusing existing artifacts from %s", tmpDir)
+				}
+				return Result{JSONPath: jsonPath, TextPath: textPath, IFOPath: target.IFOPath, VOBPath: target.VOBPath, VOBSet: target.VOBSet, VOBText: vobText, VOBJSON: vobJSON}, nil
 			}
 			if s.logger != nil {
-				s.logger.Debugf("mediainfo: reusing existing artifacts from %s", tmpDir)
-			}
-			return Result{JSONPath: jsonPath, TextPath: textPath, IFOPath: target.IFOPath, VOBPath: target.VOBPath, VOBSet: target.VOBSet, VOBText: vobText, VOBJSON: vobJSON}, nil
-		}
-		if s.logger != nil {
-			if err != nil {
-				s.logger.Warnf("mediainfo: conformance check failed, regenerating: %v", err)
-			} else if hasErrors {
-				s.logger.Infof("mediainfo: conformance errors found, regenerating")
+				if err != nil {
+					s.logger.Warnf("mediainfo: conformance check failed, regenerating: %v", err)
+				} else if hasErrors {
+					s.logger.Infof("mediainfo: conformance errors found, regenerating")
+				}
 			}
 		}
 	}
@@ -387,4 +395,20 @@ func dvdVOBIndex(path string) int {
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+func isMediaInfoCacheStale(targetPath string, textPath string, jsonPath string) bool {
+	targetInfo, err := os.Stat(targetPath)
+	if err != nil {
+		return false
+	}
+	textInfo, err := os.Stat(textPath)
+	if err != nil {
+		return true
+	}
+	jsonInfo, err := os.Stat(jsonPath)
+	if err != nil {
+		return true
+	}
+	return targetInfo.ModTime().After(textInfo.ModTime()) || targetInfo.ModTime().After(jsonInfo.ModTime())
 }
