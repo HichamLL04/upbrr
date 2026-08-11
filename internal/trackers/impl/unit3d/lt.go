@@ -23,29 +23,25 @@ func siteLTProfile() unit3DSiteProfile {
 
 func resolveUnit3DLTCategoryID(meta api.PreparedMetadata) string {
 	category := resolveUnit3DCategory(meta)
-	if meta.Anime {
-		return "5"
-	}
-	if category == "TV" && meta.ExternalMetadata.TMDB != nil {
-		kw := strings.ToLower(meta.ExternalMetadata.TMDB.Keywords)
-		if strings.Contains(kw, "novela") || strings.Contains(kw, "telenovela") {
-			return "8"
+	if category == "TV" {
+		if meta.Anime {
+			return "5"
 		}
-		for _, country := range meta.ExternalMetadata.TMDB.OriginCountry {
-			c := strings.ToUpper(strings.TrimSpace(country))
-			if c == "TR" || c == "CN" || c == "KR" || c == "JP" {
-				return "20"
+		if meta.ExternalMetadata.TMDB != nil {
+			kw := strings.ToLower(meta.ExternalMetadata.TMDB.Keywords)
+			if strings.Contains(kw, "novela") || strings.Contains(kw, "telenovela") {
+				return "8"
+			}
+			for _, country := range meta.ExternalMetadata.TMDB.OriginCountry {
+				c := strings.ToUpper(strings.TrimSpace(country))
+				if c == "TR" || c == "CN" || c == "KR" || c == "JP" {
+					return "20"
+				}
 			}
 		}
-	}
-	switch category {
-	case "MOVIE":
-		return "1"
-	case "TV":
 		return "2"
-	default:
-		return "1"
 	}
+	return "1"
 }
 
 func resolveUnit3DLTTypeID(meta api.PreparedMetadata) string {
