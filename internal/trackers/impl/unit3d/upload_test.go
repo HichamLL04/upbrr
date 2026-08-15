@@ -534,6 +534,27 @@ func TestUploadUnit3DBlocksMissingCanonicalTVSeasonEpisode(t *testing.T) {
 	}
 }
 
+func TestUploadUnit3DAllowsSpecialsAndOVAs(t *testing.T) {
+	meta := api.PreparedMetadata{
+		ReleaseName: "Charlotte E02 1080p BluRay Dual-Audio Opus 2.0 x265-GapMoe",
+		EpisodeInt:  2,
+		SeasonInt:   0,
+	}
+	data := map[string]string{
+		"season_number":  resolveSeason(meta),
+		"episode_number": resolveEpisode(meta),
+	}
+	if got := data["season_number"]; got != "0" {
+		t.Fatalf("expected season_number=0 for special, got %q", got)
+	}
+	if got := data["episode_number"]; got != "2" {
+		t.Fatalf("expected episode_number=2 for special, got %q", got)
+	}
+	if msg := unit3DTVPayloadMetadataMessage(meta, data); msg != "" {
+		t.Fatalf("expected special/OVA upload not to be blocked, got message %q", msg)
+	}
+}
+
 func TestBuildUnit3DDataFailsOnUnknownType(t *testing.T) {
 	req := trackers.UploadRequest{
 		Tracker: "AITHER",

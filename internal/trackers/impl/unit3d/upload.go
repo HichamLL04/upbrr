@@ -1010,13 +1010,13 @@ func unit3DTVPayloadMetadataMessage(meta api.PreparedMetadata, data map[string]s
 
 	missing := make([]string, 0, 2)
 	ignored := make([]string, 0, 2)
-	if meta.SeasonInt <= 0 {
+	if meta.SeasonInt <= 0 && meta.EpisodeInt <= 0 && !meta.TVPack {
 		missing = append(missing, "season")
 		if hasParsedSeasonSignal(meta) {
 			ignored = append(ignored, "season")
 		}
 	}
-	if meta.EpisodeInt <= 0 && !meta.TVPack {
+	if meta.EpisodeInt <= 0 && meta.SeasonInt <= 0 && !meta.TVPack {
 		missing = append(missing, "episode")
 		if hasParsedEpisodeSignal(meta) {
 			ignored = append(ignored, "episode")
