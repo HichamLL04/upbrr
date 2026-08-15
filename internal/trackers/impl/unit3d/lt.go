@@ -5,6 +5,7 @@ package unit3d
 
 import (
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -130,7 +131,7 @@ func BuildLTName(meta api.PreparedMetadata, customTag string) string {
 	}
 
 	// Year & Season/Episode placement
-	if isTV {
+	if isTV || seToken != "" {
 		if seToken != "" {
 			parts = append(parts, seToken)
 		} else if yearStr != "" {
@@ -319,20 +320,24 @@ func shouldIncludeYearInLTEpisode(rawName string, meta api.PreparedMetadata) boo
 	return false
 }
 
+var ltSeasonTokenPattern = regexp.MustCompile(`(?i)^S\d{1,2}$`)
+
 func detectLTSeasonToken(name string) string {
 	for _, field := range strings.Fields(name) {
 		upper := strings.ToUpper(field)
-		if strings.HasPrefix(upper, "S") && len(upper) >= 3 && !strings.Contains(upper, "E") {
+		if ltSeasonTokenPattern.MatchString(upper) {
 			return upper
 		}
 	}
 	return ""
 }
 
+var ltEpisodeTokenPattern = regexp.MustCompile(`(?i)^(?:S\d{1,2})?E\d{1,3}$`)
+
 func detectLTEpisodeToken(name string) string {
 	for _, field := range strings.Fields(name) {
 		upper := strings.ToUpper(field)
-		if strings.HasPrefix(upper, "S") && strings.Contains(upper, "E") {
+		if ltEpisodeTokenPattern.MatchString(upper) {
 			return upper
 		}
 	}

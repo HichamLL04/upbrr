@@ -120,6 +120,27 @@ func TestBuildEMUWName(t *testing.T) {
 			},
 			expected: "It: Bienvenidos a Derry S01E01 2025 1080p HBO WEB-DL AVC DUAL DD+ 5.1 SUBS-EMUWAREZ",
 		},
+		{
+			name: "Charlotte E02 Special Episode",
+			meta: api.PreparedMetadata{
+				ReleaseName: "Charlotte E02 1080p BluRay Dual-Audio Opus 2.0 x265-GapMoe",
+				Release: api.ReleaseInfo{
+					Title:      "Charlotte",
+					Category:   "TV",
+					Resolution: "1080p",
+					Type:       "ENCODE",
+				},
+				ExternalIDs: api.ExternalIDs{
+					Category: "TV",
+				},
+				VideoCodec:        "x265",
+				Audio:             "Opus",
+				Channels:          "2.0",
+				AudioLanguages:    []string{"Japanese", "Spanish"},
+				SubtitleLanguages: []string{"Spanish"},
+			},
+			expected: "Charlotte S00E02 1080p BluRay x265 DUAL Opus 2.0 SUBS-GapMoe",
+		},
 	}
 
 	for _, tt := range tests {

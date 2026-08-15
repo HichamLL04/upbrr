@@ -51,7 +51,7 @@ func BuildTTRName(meta api.PreparedMetadata, customTag string) string {
 	}
 
 	// TV Placement: Season/Episode before Year
-	if isTV {
+	if isTV || seToken != "" {
 		if seToken != "" {
 			parts = append(parts, seToken)
 		}

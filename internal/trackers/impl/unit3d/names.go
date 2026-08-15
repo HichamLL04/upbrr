@@ -102,9 +102,12 @@ func formatSeasonEpisodeToken(meta api.PreparedMetadata, rawName string) string 
 		return fmt.Sprintf("S%02d", season)
 	}
 	if episode > 0 {
-		return fmt.Sprintf("E%02d", episode)
+		return fmt.Sprintf("S%02dE%02d", season, episode)
 	}
 	if epToken := detectLTEpisodeToken(rawName); epToken != "" {
+		if strings.HasPrefix(epToken, "E") && !strings.HasPrefix(epToken, "S") {
+			return "S00" + epToken
+		}
 		return epToken
 	}
 	if sToken := detectLTSeasonToken(rawName); sToken != "" {
