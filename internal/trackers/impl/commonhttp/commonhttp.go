@@ -524,7 +524,21 @@ func formatErrorValue(value any, key string, depth int) string {
 
 	switch typed := value.(type) {
 	case map[string]any:
-		for _, candidate := range []string{"errors", "message", "status_message", "detail", "error_description", "reason", "error"} {
+		errorsVal, hasErrors := valueForKey(typed, "errors")
+		msgVal, hasMsg := valueForKey(typed, "message")
+		if hasErrors {
+			errStr := formatErrorValue(errorsVal, "errors", depth+1)
+			if errStr != "" {
+				if hasMsg {
+					msgStr := strings.TrimSpace(fmt.Sprint(msgVal))
+					if msgStr != "" && !strings.Contains(errStr, msgStr) {
+						return msgStr + ": " + errStr
+					}
+				}
+				return errStr
+			}
+		}
+		for _, candidate := range []string{"message", "status_message", "detail", "error_description", "reason", "error"} {
 			if nested, ok := valueForKey(typed, candidate); ok {
 				if formatted := formatErrorValue(nested, candidate, depth+1); formatted != "" {
 					return formatted
