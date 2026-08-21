@@ -521,21 +521,33 @@ func resolveLTVCodec(rawName string, meta api.PreparedMetadata, sourceType strin
 
 func resolveLTAudio(rawName string, meta api.PreparedMetadata) (acodec string, channels string, afeatures string) {
 	upper := strings.ToUpper(rawName)
+	metaAudioUpper := strings.ToUpper(meta.Audio)
 
-	if strings.Contains(upper, "ATMOS") {
+	// Atmos: prefer meta.Audio (real MediaInfo data), fall back to rawName only when meta.Audio is empty
+	atmosSource := metaAudioUpper
+	if atmosSource == "" {
+		atmosSource = upper
+	}
+	if strings.Contains(atmosSource, "ATMOS") {
 		afeatures = "Atmos"
-	} else if strings.Contains(upper, "AURO3D") {
+	} else if strings.Contains(atmosSource, "AURO3D") {
 		afeatures = "Auro3D"
 	}
 
-	if strings.Contains(upper, "DTS-HD MA") {
+	// Audio codec: lossless formats take priority over lossy.
+	// Check rawName first for explicit tokens; fall back to meta.Audio.
+	if strings.Contains(upper, "FLAC") {
+		acodec = "FLAC"
+	} else if strings.Contains(upper, "LPCM") || strings.Contains(upper, "PCM") {
+		acodec = "LPCM"
+	} else if strings.Contains(upper, "TRUEHD") {
+		acodec = "TrueHD"
+	} else if strings.Contains(upper, "DTS-HD MA") {
 		acodec = "DTS-HD MA"
 	} else if strings.Contains(upper, "DTS-HD HRA") {
 		acodec = "DTS-HD HRA"
 	} else if strings.Contains(upper, "DTS:X") {
 		acodec = "DTS:X"
-	} else if strings.Contains(upper, "TRUEHD") {
-		acodec = "TrueHD"
 	} else if strings.Contains(upper, "DD+ EX") {
 		acodec = "DD+ EX"
 	} else if strings.Contains(upper, "DD+") || strings.Contains(upper, "DDP") {
@@ -544,10 +556,6 @@ func resolveLTAudio(rawName string, meta api.PreparedMetadata) (acodec string, c
 		acodec = "DD EX"
 	} else if strings.Contains(upper, "DD") {
 		acodec = "DD"
-	} else if strings.Contains(upper, "FLAC") {
-		acodec = "FLAC"
-	} else if strings.Contains(upper, "LPCM") || strings.Contains(upper, "PCM") {
-		acodec = "LPCM"
 	} else if strings.Contains(upper, "AAC") {
 		acodec = "AAC"
 	} else if strings.Contains(upper, "OPUS") {

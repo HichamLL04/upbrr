@@ -374,20 +374,13 @@ func resolveEMUWAudioLangs(rawName string, meta api.PreparedMetadata) string {
 func resolveEMUWAudioCodec(rawName string, meta api.PreparedMetadata) (acodec string, channels string) {
 	upper := strings.ToUpper(rawName)
 
-	if strings.Contains(upper, "AAC LC") {
-		acodec = "AAC LC"
-	} else if strings.Contains(upper, "AAC LD") {
-		acodec = "AAC LD"
-	} else if strings.Contains(upper, "AAC HE") {
-		acodec = "AAC HE"
-	} else if strings.Contains(upper, "AAC") {
-		acodec = "AAC"
-	} else if strings.Contains(upper, "DD+ ATMOS") || strings.Contains(upper, "DD+ 5.1 ATMOS") {
-		acodec = "DD+ Atmos"
-	} else if strings.Contains(upper, "DD+") || strings.Contains(upper, "DDP") {
-		acodec = "DD+"
-	} else if strings.Contains(upper, "DD") {
-		acodec = "DD"
+	// Lossless codecs take priority over lossy.
+	if strings.Contains(upper, "FLAC") {
+		acodec = "FLAC"
+	} else if strings.Contains(upper, "PCM") {
+		acodec = "PCM"
+	} else if strings.Contains(upper, "MLP") {
+		acodec = "MLP"
 	} else if strings.Contains(upper, "TRUEHD") {
 		acodec = "TrueHD"
 	} else if strings.Contains(upper, "DTS-HD MA") {
@@ -396,12 +389,25 @@ func resolveEMUWAudioCodec(rawName string, meta api.PreparedMetadata) (acodec st
 		acodec = "DTS-HD HRA"
 	} else if strings.Contains(upper, "DTS:X") {
 		acodec = "DTS:X"
-	} else if strings.Contains(upper, "PCM") {
-		acodec = "PCM"
-	} else if strings.Contains(upper, "MLP") {
-		acodec = "MLP"
-	} else if strings.Contains(upper, "FLAC") {
-		acodec = "FLAC"
+	} else if strings.Contains(upper, "AAC LC") {
+		acodec = "AAC LC"
+	} else if strings.Contains(upper, "AAC LD") {
+		acodec = "AAC LD"
+	} else if strings.Contains(upper, "AAC HE") {
+		acodec = "AAC HE"
+	} else if strings.Contains(upper, "AAC") {
+		acodec = "AAC"
+	} else if strings.Contains(upper, "DD+ ATMOS") || strings.Contains(upper, "DD+ 5.1 ATMOS") {
+		// Check meta.Audio to confirm Atmos before using it from rawName
+		if strings.Contains(strings.ToUpper(meta.Audio), "ATMOS") {
+			acodec = "DD+ Atmos"
+		} else {
+			acodec = "DD+"
+		}
+	} else if strings.Contains(upper, "DD+") || strings.Contains(upper, "DDP") {
+		acodec = "DD+"
+	} else if strings.Contains(upper, "DD") {
+		acodec = "DD"
 	} else if strings.Contains(upper, "OPUS") {
 		acodec = "Opus"
 	}
