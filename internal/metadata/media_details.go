@@ -893,6 +893,14 @@ func selectPrimaryAudioTrack(tracks []map[string]any) map[string]any {
 	if len(filtered) == 0 {
 		filtered = tracks
 	}
+	// Prefer lossless tracks (FLAC, TrueHD, DTS-HD MA, LPCM) over lossy ones.
+	// This ensures that when a file has both a lossless original track and a
+	// lossy dub (e.g. DD+ added for cross-seeding), the lossless track drives
+	// the release name audio field regardless of track order in the container.
+	lossless := filterLosslessAudioTracks(filtered)
+	if len(lossless) > 0 {
+		filtered = lossless
+	}
 	if selected, ok := lowestTrackByNumericField(filtered, "StreamOrder"); ok {
 		return selected
 	}
@@ -900,6 +908,34 @@ func selectPrimaryAudioTrack(tracks []map[string]any) map[string]any {
 		return selected
 	}
 	return filtered[0]
+}
+
+// audioFormatIsLossless reports whether a MediaInfo Format value is a lossless codec.
+func audioFormatIsLossless(track map[string]any) bool {
+	commercial := strings.ToLower(trackString(track, "Format_Commercial", "Format_Commercial_IfAny"))
+	format := strings.ToLower(strings.TrimSpace(trackString(track, "Format", "Format_String")))
+	if strings.Contains(commercial, "free lossless audio codec") ||
+		strings.Contains(commercial, "dolby truehd") ||
+		strings.Contains(commercial, "dts-hd master audio") ||
+		strings.Contains(commercial, "pcm") ||
+		strings.Contains(commercial, "lpcm") {
+		return true
+	}
+	switch format {
+	case "flac", "mlp fba", "pcm", "lpcm audio":
+		return true
+	}
+	return false
+}
+
+func filterLosslessAudioTracks(tracks []map[string]any) []map[string]any {
+	filtered := make([]map[string]any, 0, len(tracks))
+	for _, track := range tracks {
+		if audioFormatIsLossless(track) {
+			filtered = append(filtered, track)
+		}
+	}
+	return filtered
 }
 
 // filterPrimaryAudioTracks returns tracks eligible to represent primary release
