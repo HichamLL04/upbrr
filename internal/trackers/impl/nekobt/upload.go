@@ -44,7 +44,7 @@ const (
 
 type primaryGroupPayload struct {
 	ID      string `json:"id"`
-	Members []any  `json:"members,omitempty"`
+	Members []any  `json:"members"`
 }
 
 type uploadPayload struct {
