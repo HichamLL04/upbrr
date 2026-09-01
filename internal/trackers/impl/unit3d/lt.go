@@ -344,48 +344,79 @@ func detectLTEpisodeToken(name string) string {
 	return ""
 }
 
+var (
+	ltIMAXPattern           = regexp.MustCompile(`(?i)\bIMAX\b`)
+	ltOpenMattePattern      = regexp.MustCompile(`(?i)\bOPEN[\s._-]*MATTE\b`)
+	ltDirectorsCutPattern   = regexp.MustCompile(`(?i)\bDIRECTOR'?S[\s._-]*CUT\b`)
+	ltExtCollectorPattern   = regexp.MustCompile(`(?i)\bEXTENDED[\s._-]*COLLECTOR'?S[\s._-]*EDITION\b`)
+	ltExtendedPattern       = regexp.MustCompile(`(?i)\bEXTENDED\b`)
+	ltSpecialEditionPattern = regexp.MustCompile(`(?i)\bSPECIAL[\s._-]*EDITION\b`)
+	ltUnratedPattern        = regexp.MustCompile(`(?i)\bUNRATED\b`)
+	ltUncutPattern          = regexp.MustCompile(`(?i)\bUNCUT\b`)
+	ltCriterionPattern      = regexp.MustCompile(`(?i)\bCRITERION\b`)
+	ltRemasteredPattern     = regexp.MustCompile(`(?i)\bREMASTERED\b`)
+	ltLimitedPattern        = regexp.MustCompile(`(?i)\bLIMITED\b`)
+	ltRepack2Pattern        = regexp.MustCompile(`(?i)\bREPACK2\b`)
+	ltRepackPattern         = regexp.MustCompile(`(?i)\bREPACK\b`)
+	ltProperPattern         = regexp.MustCompile(`(?i)\bPROPER\b`)
+)
+
 func resolveLTEditions(rawName string, meta api.PreparedMetadata) []string {
 	editions := []string{}
-	upper := strings.ToUpper(rawName)
+	target := rawName
+	if title := resolveLTTitle(meta); title != "" {
+		target = strings.Replace(target, title, "", 1)
+	}
 
-	if strings.Contains(upper, "IMAX") {
+	if ltIMAXPattern.MatchString(target) {
 		editions = append(editions, "IMAX")
-	} else if strings.Contains(upper, "OPEN MATTE") {
+	} else if ltOpenMattePattern.MatchString(target) {
 		editions = append(editions, "Open Matte")
 	}
 
-	if strings.Contains(upper, "DIRECTORS CUT") || strings.Contains(upper, "DIRECTOR'S CUT") {
+	if ltDirectorsCutPattern.MatchString(target) {
 		editions = append(editions, "Directors Cut")
-	} else if strings.Contains(upper, "EXTENDED COLLECTOR'S EDITION") {
+	} else if ltExtCollectorPattern.MatchString(target) {
 		editions = append(editions, "Extended Collector's Edition")
-	} else if strings.Contains(upper, "EXTENDED") {
+	} else if ltExtendedPattern.MatchString(target) {
 		editions = append(editions, "Extended")
-	} else if strings.Contains(upper, "SPECIAL EDITION") {
+	} else if ltSpecialEditionPattern.MatchString(target) {
 		editions = append(editions, "Special Edition")
-	} else if strings.Contains(upper, "UNRATED") {
+	} else if ltUnratedPattern.MatchString(target) {
 		editions = append(editions, "UNRATED")
-	} else if strings.Contains(upper, "UNCUT") {
+	} else if ltUncutPattern.MatchString(target) {
 		editions = append(editions, "Uncut")
 	}
 
-	if strings.Contains(upper, "CRITERION") {
+	if ltCriterionPattern.MatchString(target) {
 		editions = append(editions, "Criterion")
-	} else if strings.Contains(upper, "REMASTERED") {
+	} else if ltRemasteredPattern.MatchString(target) {
 		editions = append(editions, "Remastered")
-	} else if strings.Contains(upper, "LIMITED") {
+	} else if ltLimitedPattern.MatchString(target) {
 		editions = append(editions, "Limited")
 	}
 
 	return editions
 }
 
-func detectLTRepackToken(name string) string {
-	upper := strings.ToUpper(name)
-	if strings.Contains(upper, "REPACK2") {
-		return "REPACK2"
+func detectLTRepackToken(name string, meta ...api.PreparedMetadata) string {
+	candidates := []string{name}
+	if len(meta) > 0 {
+		candidates = append(candidates, meta[0].ReleaseName, meta[0].ReleaseNameClean, meta[0].SourcePath)
 	}
-	if strings.Contains(upper, "REPACK") {
-		return "REPACK"
+	for _, cand := range candidates {
+		if cand == "" {
+			continue
+		}
+		if ltRepack2Pattern.MatchString(cand) {
+			return "REPACK2"
+		}
+		if ltRepackPattern.MatchString(cand) {
+			return "REPACK"
+		}
+		if ltProperPattern.MatchString(cand) {
+			return "PROPER"
+		}
 	}
 	return ""
 }

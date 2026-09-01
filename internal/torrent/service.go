@@ -99,7 +99,10 @@ func (s *Service) Create(ctx context.Context, meta api.PreparedMetadata) (api.To
 		s.logger.Debugf("torrent: checking temp torrent %s", tmpTorrentPath)
 		if info, err := os.Stat(tmpTorrentPath); err == nil {
 			if !info.IsDir() {
-				if err := validateCandidateTorrent(tmpTorrentPath, policy, meta, s.logger); err == nil {
+				if isCandidateTorrentStale(source, tmpTorrentPath, meta) {
+					s.logger.Infof("torrent: source media modified after cached temp torrent was created, regenerating: %s", tmpTorrentPath)
+					_ = os.Remove(tmpTorrentPath)
+				} else if err := validateCandidateTorrent(tmpTorrentPath, policy, meta, s.logger); err == nil {
 					s.logger.Debugf("torrent: reusing existing temp torrent %s", tmpTorrentPath)
 					return resultFromExistingTorrent(ctx, meta, tmpTorrentPath, "Reusing existing torrent")
 				}
@@ -112,7 +115,9 @@ func (s *Service) Create(ctx context.Context, meta api.PreparedMetadata) (api.To
 		s.logger.Debugf("torrent: checking adjacent torrent %s", candidate)
 		if info, err := os.Stat(candidate); err == nil {
 			if !info.IsDir() {
-				if err := validateCandidateTorrent(candidate, policy, meta, s.logger); err == nil {
+				if isCandidateTorrentStale(source, candidate, meta) {
+					s.logger.Infof("torrent: source media modified after adjacent torrent was created, skipping reuse: %s", candidate)
+				} else if err := validateCandidateTorrent(candidate, policy, meta, s.logger); err == nil {
 					s.logger.Debugf("torrent: reusing existing torrent %s", candidate)
 					return resultFromExistingTorrent(ctx, meta, candidate, "Reusing existing torrent")
 				}
@@ -126,7 +131,9 @@ func (s *Service) Create(ctx context.Context, meta api.PreparedMetadata) (api.To
 				s.logger.Debugf("torrent: checking sibling torrent %s", sibling)
 				if info, err := os.Stat(sibling); err == nil {
 					if !info.IsDir() {
-						if err := validateCandidateTorrent(sibling, policy, meta, s.logger); err == nil {
+						if isCandidateTorrentStale(source, sibling, meta) {
+							s.logger.Infof("torrent: source media modified after sibling torrent was created, skipping reuse: %s", sibling)
+						} else if err := validateCandidateTorrent(sibling, policy, meta, s.logger); err == nil {
 							s.logger.Debugf("torrent: reusing existing torrent %s", sibling)
 							return resultFromExistingTorrent(ctx, meta, sibling, "Reusing existing torrent")
 						}
@@ -314,6 +321,74 @@ func validateCandidateTorrent(path string, policy *trackerTorrentPolicy, meta ap
 		return err
 	}
 	return nil
+}
+
+func isCandidateTorrentStale(source string, torrentPath string, meta api.PreparedMetadata) bool {
+	torrentStat, err := os.Stat(torrentPath)
+	if err != nil {
+		return false
+	}
+	torrentMtime := torrentStat.ModTime()
+
+	sourceStat, err := os.Stat(source)
+	if err != nil {
+		return false
+	}
+	if !sourceStat.IsDir() {
+		return sourceStat.ModTime().After(torrentMtime)
+	}
+
+	if sourceStat.ModTime().After(torrentMtime) {
+		return true
+	}
+
+	expectedFiles, ok, err := expectedTorrentFiles(meta)
+	if err == nil && ok && len(expectedFiles) > 0 {
+		for _, file := range expectedFiles {
+			if fileStat, err := os.Stat(file.path); err == nil {
+				if fileStat.ModTime().After(torrentMtime) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	if len(meta.FileList) > 0 {
+		for _, file := range meta.FileList {
+			trimmed := strings.TrimSpace(file)
+			if trimmed == "" {
+				continue
+			}
+			if fileStat, err := os.Stat(trimmed); err == nil {
+				if fileStat.ModTime().After(torrentMtime) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	var foundStale bool
+	_ = filepath.WalkDir(source, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil || foundStale {
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if mkbrrIgnoredPath(path, false) {
+			return nil
+		}
+		if info, err := d.Info(); err == nil {
+			if info.ModTime().After(torrentMtime) {
+				foundStale = true
+				return filepath.SkipAll
+			}
+		}
+		return nil
+	})
+	return foundStale
 }
 
 type createSpec struct {

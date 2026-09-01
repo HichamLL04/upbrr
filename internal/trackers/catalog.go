@@ -42,6 +42,7 @@ var knownNonUnit3DTrackers = map[string]struct{}{
 	"IS":     {},
 	"MTV":    {},
 	"NBL":    {},
+	"NEKOBT": {},
 	"PHD":    {},
 	"PTP":    {},
 	"PTS":    {},

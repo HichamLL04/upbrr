@@ -338,6 +338,12 @@ trackers:
     url: "https://luminarr.me"
     anon: false
     modq: false
+  MILNUEVE:
+    link_dir_name: ""
+    api_key: ""
+    url: "https://tracker.milnueve.cc"
+    anon: false
+    modq: false
   MNS:
     link_dir_name: ""
     api_key: ""
@@ -359,6 +365,18 @@ trackers:
     api_key: ""
     url: "https://nebulance.io"
     announce_url: ""
+  NEKOBT:
+    link_dir_name: ""
+    api_key: ""
+    url: "https://nekobt.to"
+    anon: false
+    group_id: ""
+  NOBS:
+    link_dir_name: ""
+    api_key: ""
+    url: "https://nobs.rawsmoke.net"
+    anon: false
+    modq: false
   OE:
     link_dir_name: ""
     api_key: ""

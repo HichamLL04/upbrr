@@ -73,6 +73,8 @@ func BuildTTRName(meta api.PreparedMetadata, customTag string) string {
 		audioMode = "Dual-Audio"
 	}
 
+	repack := detectLTRepackToken(rawName, meta)
+
 	if resolution != "" {
 		parts = append(parts, resolution)
 	}
@@ -81,6 +83,9 @@ func BuildTTRName(meta api.PreparedMetadata, customTag string) string {
 	}
 	if format != "" {
 		parts = append(parts, format)
+	}
+	if repack != "" {
+		parts = append(parts, repack)
 	}
 	if audioMode != "" {
 		parts = append(parts, audioMode)

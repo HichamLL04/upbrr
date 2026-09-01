@@ -2224,4 +2224,173 @@ func TestBuildUnit3DNameTTR(t *testing.T) {
 			t.Fatalf("expected Latino Subs suffix added before GRP, got %q", got)
 		}
 	})
+
+	t.Run("preserves REPACK and ignores Unlimited as edition token", func(t *testing.T) {
+		meta := api.PreparedMetadata{
+			ReleaseName: "Fate.stay.night.Unlimited.Blade.Works.2010.REPACK.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1-GRP",
+			Tag:         "GRP",
+			Release:     api.ReleaseInfo{Title: "Fate/stay night: Unlimited Blade Works", Year: 2010, Resolution: "1080p", Type: "REMUX"},
+			ExternalMetadata: api.ExternalMetadata{
+				TMDB: &api.TMDBMetadata{
+					Title: "Fate/stay night: Unlimited Blade Works",
+				},
+			},
+		}
+
+		gotLT := BuildUnit3DName("LT", meta, config.TrackerConfig{})
+		if strings.Contains(gotLT, "Limited") {
+			t.Fatalf("expected Limited NOT to be added for Unlimited title, got %q", gotLT)
+		}
+		if !strings.Contains(gotLT, "REPACK") {
+			t.Fatalf("expected REPACK to be present in LT title, got %q", gotLT)
+		}
+
+		gotEMUW := BuildUnit3DName("EMUW", meta, config.TrackerConfig{})
+		if !strings.Contains(gotEMUW, "REPACK") {
+			t.Fatalf("expected REPACK to be present in EMUW title, got %q", gotEMUW)
+		}
+
+		gotTTR := BuildUnit3DName("TTR", meta, config.TrackerConfig{})
+		if !strings.Contains(gotTTR, "REPACK") {
+			t.Fatalf("expected REPACK to be present in TTR title, got %q", gotTTR)
+		}
+	})
+}
+
+func TestBuildUnit3DNameNOBS(t *testing.T) {
+	t.Run("formats movie with DUAL audio and standard HD omission", func(t *testing.T) {
+		meta := api.PreparedMetadata{
+			ReleaseName: "The.Godfather.1972.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1-GRP",
+			Tag:         "GRP",
+			Release:     api.ReleaseInfo{Title: "El Padrino", Year: 1972, Resolution: "1080p", Type: "REMUX"},
+			AudioLanguages: []string{"es", "en"},
+			Channels:    "5.1",
+			ExternalMetadata: api.ExternalMetadata{
+				TMDB: &api.TMDBMetadata{
+					Title: "El Padrino",
+				},
+			},
+		}
+
+		got := BuildUnit3DName("NOBS", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "El Padrino 1972") {
+			t.Fatalf("expected title El Padrino 1972, got %q", got)
+		}
+		if !strings.Contains(got, "BDREMUX 1080p") {
+			t.Fatalf("expected BDREMUX 1080p, got %q", got)
+		}
+		if !strings.Contains(got, "DUAL") {
+			t.Fatalf("expected DUAL, got %q", got)
+		}
+		// x264 should be omitted for standard HD
+		if strings.Contains(got, "x264") {
+			t.Fatalf("expected x264 omitted for standard HD, got %q", got)
+		}
+	})
+
+	t.Run("formats UHD movie with UHD token and HDR", func(t *testing.T) {
+		meta := api.PreparedMetadata{
+			ReleaseName: "A.Clockwork.Orange.1971.UHD.BDREMUX.2160p.HDR.TrueHD.Atmos.7.1-GRP",
+			Tag:         "GRP",
+			Release:     api.ReleaseInfo{Title: "La Naranja Mecánica", Year: 1971, Resolution: "2160p", Type: "REMUX"},
+			AudioLanguages: []string{"es"},
+			HDR:         "HDR",
+			Channels:    "7.1",
+			ExternalMetadata: api.ExternalMetadata{
+				TMDB: &api.TMDBMetadata{
+					Title: "La Naranja Mecánica",
+				},
+			},
+		}
+
+		got := BuildUnit3DName("NOBS", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "UHD BDREMUX 2160p") {
+			t.Fatalf("expected UHD BDREMUX 2160p, got %q", got)
+		}
+		if !strings.Contains(got, "HDR") {
+			t.Fatalf("expected HDR, got %q", got)
+		}
+		if !strings.Contains(got, "ESP") {
+			t.Fatalf("expected ESP, got %q", got)
+		}
+	})
+
+	t.Run("formats TV episode with SXXEXX and SUB", func(t *testing.T) {
+		meta := api.PreparedMetadata{
+			ReleaseName: "Grimm.2011.S01E15.HDTV.720p.MP3-GRP",
+			Tag:         "GRP",
+			Release:     api.ReleaseInfo{Title: "Grimm", Year: 2011, Resolution: "720p", Type: "HDTV"},
+			SeasonInt:   1,
+			EpisodeInt:  15,
+			AudioLanguages: []string{"es"},
+			SubtitleLanguages: []string{"es"},
+			ExternalMetadata: api.ExternalMetadata{
+				TMDB: &api.TMDBMetadata{
+					Title: "Grimm",
+				},
+			},
+		}
+
+		got := BuildUnit3DName("NOBS", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "Grimm 2011 S01E15 HDTV 720p") {
+			t.Fatalf("expected TV format, got %q", got)
+		}
+		if !strings.Contains(got, "ESP MP3") {
+			t.Fatalf("expected ESP MP3, got %q", got)
+		}
+		if !strings.Contains(got, "SUB") {
+			t.Fatalf("expected SUB, got %q", got)
+		}
+	})
+}
+
+func TestBuildUnit3DNameMilnueve(t *testing.T) {
+	t.Run("formats movie correctly", func(t *testing.T) {
+		meta := api.PreparedMetadata{
+			ReleaseName: "The.Godfather.1972.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1-GRP",
+			Tag:         "GRP",
+			Release:     api.ReleaseInfo{Title: "El Padrino", Year: 1972, Resolution: "1080p", Type: "REMUX"},
+			AudioLanguages: []string{"es", "en"},
+			Channels:    "5.1",
+			ExternalMetadata: api.ExternalMetadata{
+				TMDB: &api.TMDBMetadata{
+					Title: "El Padrino",
+				},
+			},
+		}
+
+		got := BuildUnit3DName("MILNUEVE", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "El Padrino 1972 BDREMUX 1080p") {
+			t.Fatalf("expected format El Padrino 1972 BDREMUX 1080p, got %q", got)
+		}
+		if !strings.Contains(got, "DUAL") {
+			t.Fatalf("expected DUAL, got %q", got)
+		}
+	})
+
+	t.Run("formats series episode with SUB", func(t *testing.T) {
+		meta := api.PreparedMetadata{
+			ReleaseName: "Guardianes.de.la.Noche.2019.S01.WEB-DL.1080p.DUAL.EAC3.2.0.SUB-GRP",
+			Tag:         "GRP",
+			Release:     api.ReleaseInfo{Title: "Guardianes de la Noche", Year: 2019, Resolution: "1080p", Type: "WEBDL"},
+			SeasonInt:   1,
+			EpisodeInt:  0,
+			AudioLanguages: []string{"es", "ja"},
+			SubtitleLanguages: []string{"es"},
+			Channels:    "2.0",
+			ExternalMetadata: api.ExternalMetadata{
+				TMDB: &api.TMDBMetadata{
+					Title: "Guardianes de la Noche",
+				},
+			},
+		}
+
+		got := BuildUnit3DName("MN", meta, config.TrackerConfig{})
+		if !strings.Contains(got, "Guardianes de la Noche 2019 S01 WEB-DL 1080p DUAL") {
+			t.Fatalf("expected series format with DUAL, got %q", got)
+		}
+		if !strings.Contains(got, "EAC3 2.0 SUB") {
+			t.Fatalf("expected EAC3 2.0 SUB, got %q", got)
+		}
+	})
 }

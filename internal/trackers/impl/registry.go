@@ -27,6 +27,7 @@ import (
 	"github.com/autobrr/upbrr/internal/trackers/impl/is"
 	"github.com/autobrr/upbrr/internal/trackers/impl/mtv"
 	"github.com/autobrr/upbrr/internal/trackers/impl/nbl"
+	"github.com/autobrr/upbrr/internal/trackers/impl/nekobt"
 	"github.com/autobrr/upbrr/internal/trackers/impl/ptp"
 	"github.com/autobrr/upbrr/internal/trackers/impl/pts"
 	"github.com/autobrr/upbrr/internal/trackers/impl/rtf"
@@ -97,6 +98,9 @@ func NewRegistry() (*trackers.Registry, error) {
 		return nil, fmt.Errorf("trackers: %w", err)
 	}
 	if err := registry.Register(nbl.New()); err != nil {
+		return nil, fmt.Errorf("trackers: %w", err)
+	}
+	if err := registry.Register(nekobt.New()); err != nil {
 		return nil, fmt.Errorf("trackers: %w", err)
 	}
 	if err := registry.Register(ptp.New()); err != nil {

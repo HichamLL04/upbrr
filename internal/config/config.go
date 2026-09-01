@@ -230,6 +230,7 @@ type TrackerConfig struct {
 	UploaderStatus      bool           `yaml:"uploader_status" json:"UploaderStatus"`
 	CustomLayout        string         `yaml:"custom_layout" json:"CustomLayout"`
 	TagForCustomRelease string         `yaml:"tag_for_custom_release" json:"TagForCustomRelease"`
+	GroupID             string         `yaml:"group_id" json:"GroupID"`
 	CheckForRules       bool           `yaml:"check_for_rules" json:"CheckForRules"`
 	ModQ                bool           `yaml:"modq" json:"ModQ"`
 	Draft               bool           `yaml:"draft" json:"Draft"`

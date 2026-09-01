@@ -112,6 +112,7 @@ func BuildEMUWName(meta api.PreparedMetadata, customTag string) string {
 	}
 
 	edition := resolveEMUWEdition(rawName, meta)
+	repack := detectLTRepackToken(rawName, meta)
 
 	// Service & Format
 	if service != "" {
@@ -122,6 +123,9 @@ func BuildEMUWName(meta api.PreparedMetadata, customTag string) string {
 	}
 	if format != "" {
 		parts = append(parts, format)
+	}
+	if repack != "" {
+		parts = append(parts, repack)
 	}
 
 	// DV/HDR before video codec

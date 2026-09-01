@@ -720,6 +720,93 @@ func TestCreateRehashBypassesReusableTempTorrent(t *testing.T) {
 	}
 }
 
+func TestCreateStaleTempTorrentRegeneratesWhenSourceModified(t *testing.T) {
+	t.Parallel()
+
+	sourceDir := t.TempDir()
+	source := filepath.Join(sourceDir, "video.mkv")
+	if err := os.WriteFile(source, []byte("source-data-v1"), 0o600); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	tmpRoot := t.TempDir()
+	service := NewService(api.NopLogger{}, tmpRoot)
+	meta := api.PreparedMetadata{SourcePath: source}
+
+	tmpTorrentPath, err := TempTorrentPath(tmpRoot, meta, source)
+	if err != nil {
+		t.Fatalf("temp torrent path: %v", err)
+	}
+	createTestTorrent(t, source, tmpTorrentPath)
+
+	past := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(tmpTorrentPath, past, past); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+	sourceTime := time.Now().Add(-1 * time.Hour)
+	if err := os.Chtimes(source, sourceTime, sourceTime); err != nil {
+		t.Fatalf("chtimes source: %v", err)
+	}
+
+	result, err := service.Create(context.Background(), meta)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result.Path != tmpTorrentPath {
+		t.Fatalf("expected regenerated torrent at temp path %s, got %s", tmpTorrentPath, result.Path)
+	}
+	if got := mustStat(t, result.Path).ModTime(); !got.After(sourceTime) {
+		t.Fatalf("expected stale temp torrent to be regenerated, modtime %v was not after %v", got, sourceTime)
+	}
+}
+
+func TestCreateStaleFolderTorrentRegeneratesWhenAnyEpisodeModified(t *testing.T) {
+	t.Parallel()
+
+	showDir := filepath.Join(t.TempDir(), "Show.S02.1080p.REMUX-GRP")
+	if err := os.MkdirAll(showDir, 0o700); err != nil {
+		t.Fatalf("mkdir show: %v", err)
+	}
+	ep1 := filepath.Join(showDir, "Show.S02E01.mkv")
+	ep2 := filepath.Join(showDir, "Show.S02E02.mkv")
+	if err := os.WriteFile(ep1, []byte("episode-1"), 0o600); err != nil {
+		t.Fatalf("write ep1: %v", err)
+	}
+	if err := os.WriteFile(ep2, []byte("episode-2"), 0o600); err != nil {
+		t.Fatalf("write ep2: %v", err)
+	}
+
+	tmpRoot := t.TempDir()
+	service := NewService(api.NopLogger{}, tmpRoot)
+	meta := api.PreparedMetadata{SourcePath: showDir, FileList: []string{ep1, ep2}}
+
+	tmpTorrentPath, err := TempTorrentPath(tmpRoot, meta, showDir)
+	if err != nil {
+		t.Fatalf("temp torrent path: %v", err)
+	}
+	createTestTorrentFromExisting(t, showDir, tmpTorrentPath)
+
+	past := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(tmpTorrentPath, past, past); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+	modTime := time.Now().Add(-30 * time.Minute)
+	if err := os.Chtimes(ep2, modTime, modTime); err != nil {
+		t.Fatalf("chtimes ep2: %v", err)
+	}
+
+	result, err := service.Create(context.Background(), meta)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if result.Path != tmpTorrentPath {
+		t.Fatalf("expected regenerated torrent at temp path %s, got %s", tmpTorrentPath, result.Path)
+	}
+	if got := mustStat(t, result.Path).ModTime(); !got.After(modTime) {
+		t.Fatalf("expected stale folder torrent to be regenerated, modtime %v was not after %v", got, modTime)
+	}
+}
+
 func TestCreateRehashOverridesNoHashReusableTorrents(t *testing.T) {
 	t.Parallel()
 

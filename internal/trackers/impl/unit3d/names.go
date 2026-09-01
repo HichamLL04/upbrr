@@ -73,6 +73,10 @@ func BuildUnit3DName(tracker string, meta api.PreparedMetadata, cfg config.Track
 		return buildLDUName(name, meta)
 	case "LT":
 		return BuildLTName(meta, cfg.TagForCustomRelease)
+	case "MILNUEVE", "MN":
+		return BuildMilnueveName(meta, cfg.TagForCustomRelease)
+	case "NOBS":
+		return BuildNOBSName(meta, cfg.TagForCustomRelease)
 	case "RF":
 		return addNoGroupSuffix(name, meta, "NoGroup")
 	case "SAM":
