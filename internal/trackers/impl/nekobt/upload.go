@@ -43,6 +43,8 @@ type uploadPayload struct {
 	OTL            bool                 `json:"otl"`
 	Hardsub        bool                 `json:"hardsub"`
 	Batch          bool                 `json:"batch"`
+	Hidden         bool                 `json:"hidden"`
+	Complete       bool                 `json:"complete"`
 	Anonymous      bool                 `json:"anonymous"`
 	AudioLangs     string               `json:"audio_langs"`
 	SubLangs       string               `json:"sub_langs"`
@@ -127,6 +129,8 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 		OTL:            false,
 		Hardsub:        false,
 		Batch:          isBatch,
+		Hidden:         false,
+		Complete:       false,
 		Anonymous:      req.TrackerConfig.Anon,
 		AudioLangs:     resolveNekoBTLanguages(meta.AudioLanguages),
 		SubLangs:       resolveNekoBTLanguages(meta.SubtitleLanguages),
