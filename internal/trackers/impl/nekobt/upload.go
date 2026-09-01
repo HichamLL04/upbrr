@@ -16,10 +16,26 @@ import (
 	"strings"
 	"time"
 
+	"github.com/anacrolix/torrent/bencode"
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/autobrr/upbrr/internal/redaction"
 	"github.com/autobrr/upbrr/internal/trackers"
 	"github.com/autobrr/upbrr/pkg/api"
 )
+
+var nekoBTExtraAnnounces = []string{
+	"https://tracker.nekobt.to/api/tracker/public/announce",
+	"https://tracker.zhuqiy.com:443/announce",
+	"https://tracker.pmman.tech:443/announce",
+	"https://tracker.nekomi.cn:443/announce",
+	"https://tracker.leechshield.link:443/announce",
+	"https://tracker.openbittorrent.com:80/announce",
+	"udp://tracker.opentrackr.org:1337/announce",
+	"udp://open.demonii.com:1337/announce",
+	"udp://open.stealth.si:80/announce",
+	"udp://tracker.torrent.eu.org:451/announce",
+	"udp://explodie.org:6969/announce",
+}
 
 const (
 	defaultBaseURL = "https://nekobt.to"
@@ -96,9 +112,12 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 		}
 	}
 
-	torrentBytes, err := os.ReadFile(torrentPath)
+	torrentBytes, err := prepareNekoBTTorrentBytes(torrentPath, req.TrackerConfig.AnnounceURL)
 	if err != nil {
-		return uploadPayload{}, wrapError("read torrent file", err)
+		torrentBytes, err = os.ReadFile(torrentPath)
+		if err != nil {
+			return uploadPayload{}, wrapError("read torrent file", err)
+		}
 	}
 
 	isMovie := meta.SeasonInt == 0 && meta.EpisodeInt == 0 && !meta.HasTVSeasonEpisodeSignal()
@@ -241,3 +260,31 @@ func buildUploadDryRun(ctx context.Context, req trackers.UploadRequest) (api.Tra
 		},
 	}, nil
 }
+
+func prepareNekoBTTorrentBytes(torrentPath string, customAnnounce string) ([]byte, error) {
+	torrentMeta, err := metainfo.LoadFromFile(torrentPath)
+	if err != nil {
+		return nil, err
+	}
+	announce := strings.TrimSpace(customAnnounce)
+	if announce == "" {
+		announce = "https://tracker.nekobt.to/api/tracker/public/announce"
+	}
+	torrentMeta.Announce = announce
+
+	var announceList metainfo.AnnounceList
+	announceList = append(announceList, []string{announce})
+	for _, extra := range nekoBTExtraAnnounces {
+		if !strings.EqualFold(extra, announce) {
+			announceList = append(announceList, []string{extra})
+		}
+	}
+	torrentMeta.AnnounceList = announceList
+
+	var buf bytes.Buffer
+	if err := bencode.NewEncoder(&buf).Encode(torrentMeta); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
