@@ -130,33 +130,25 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 	}
 	description := buildDescription(req, assets)
 
-	var mediainfo string
-	if meta.MediaInfoTextPath != "" {
-		if b, err := os.ReadFile(meta.MediaInfoTextPath); err == nil {
-			mediainfo = string(b)
-		}
-	}
-
 	payload := uploadPayload{
-		Torrent:        base64.StdEncoding.EncodeToString(torrentBytes),
-		Title:          buildTitle(meta),
-		Movie:          isMovie,
-		Category:       1,
-		VideoType:      resolveNekoBTVideoType(meta),
-		VideoCodec:     resolveNekoBTVideoCodec(meta),
-		Level:          resolveNekoBTLevel(meta),
-		MTL:            meta.HasIA,
-		OTL:            false,
-		Hardsub:        false,
-		Batch:          isBatch,
-		Hidden:         false,
-		Complete:       false,
-		Anonymous:      req.TrackerConfig.Anon,
-		AudioLangs:     resolveNekoBTLanguages(meta.AudioLanguages),
-		SubLangs:       resolveNekoBTLanguages(meta.SubtitleLanguages),
-		FansubLangs:    "",
+		Torrent:         base64.StdEncoding.EncodeToString(torrentBytes),
+		Title:           buildTitle(meta),
+		Movie:           isMovie,
+		Category:        1,
+		VideoType:       resolveNekoBTVideoType(meta),
+		VideoCodec:      resolveNekoBTVideoCodec(meta),
+		Level:           resolveNekoBTLevel(meta),
+		MTL:             meta.HasIA,
+		OTL:             false,
+		Hardsub:         false,
+		Batch:           isBatch,
+		Hidden:          false,
+		Complete:        false,
+		Anonymous:       req.TrackerConfig.Anon,
+		AudioLangs:      resolveNekoBTLanguages(meta.AudioLanguages),
+		SubLangs:        resolveNekoBTLanguages(meta.SubtitleLanguages),
+		FansubLangs:     "",
 		Description:     description,
-		MediaInfo:       mediainfo,
 		SecondaryGroups: []any{},
 		IgnoreWarnings:  true,
 	}
