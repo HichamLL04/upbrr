@@ -67,8 +67,9 @@ type uploadPayload struct {
 	FansubLangs    string               `json:"fansub_langs"`
 	Description    string               `json:"description"`
 	MediaInfo      string               `json:"mediainfo,omitempty"`
-	PrimaryGroup   *primaryGroupPayload `json:"primary_group,omitempty"`
-	IgnoreWarnings bool                 `json:"ignore_warnings,omitempty"`
+	PrimaryGroup    *primaryGroupPayload `json:"primary_group,omitempty"`
+	SecondaryGroups []any                `json:"secondary_groups"`
+	IgnoreWarnings  bool                 `json:"ignore_warnings,omitempty"`
 }
 
 type uploadResponse struct {
@@ -154,14 +155,16 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 		AudioLangs:     resolveNekoBTLanguages(meta.AudioLanguages),
 		SubLangs:       resolveNekoBTLanguages(meta.SubtitleLanguages),
 		FansubLangs:    "",
-		Description:    description,
-		MediaInfo:      mediainfo,
-		IgnoreWarnings: true,
+		Description:     description,
+		MediaInfo:       mediainfo,
+		SecondaryGroups: []any{},
+		IgnoreWarnings:  true,
 	}
 
 	if groupID := strings.TrimSpace(req.TrackerConfig.GroupID); groupID != "" {
 		payload.PrimaryGroup = &primaryGroupPayload{
-			ID: groupID,
+			ID:      groupID,
+			Members: []any{},
 		}
 	}
 
