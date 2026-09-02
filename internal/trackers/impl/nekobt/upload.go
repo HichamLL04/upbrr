@@ -18,7 +18,6 @@ import (
 
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/autobrr/upbrr/internal/redaction"
 	"github.com/autobrr/upbrr/internal/trackers"
 	"github.com/autobrr/upbrr/pkg/api"
 )
@@ -48,25 +47,24 @@ type primaryGroupPayload struct {
 }
 
 type uploadPayload struct {
-	Torrent        string               `json:"torrent"`
-	Title          string               `json:"title"`
-	Movie          bool                 `json:"movie"`
-	Category       int                  `json:"category"`
-	VideoType      int                  `json:"video_type"`
-	VideoCodec     int                  `json:"video_codec"`
-	Level          int                  `json:"level"`
-	MTL            bool                 `json:"mtl"`
-	OTL            bool                 `json:"otl"`
-	Hardsub        bool                 `json:"hardsub"`
-	Batch          bool                 `json:"batch"`
-	Hidden         bool                 `json:"hidden"`
-	Complete       bool                 `json:"complete"`
-	Anonymous      bool                 `json:"anonymous"`
-	AudioLangs     string               `json:"audio_langs"`
-	SubLangs       string               `json:"sub_langs"`
-	FansubLangs    string               `json:"fansub_langs"`
-	Description    string               `json:"description"`
-	MediaInfo      string               `json:"mediainfo,omitempty"`
+	Torrent         string               `json:"torrent"`
+	Title           string               `json:"title"`
+	Movie           bool                 `json:"movie"`
+	Category        int                  `json:"category"`
+	VideoType       int                  `json:"video_type"`
+	VideoCodec      int                  `json:"video_codec"`
+	Level           int                  `json:"level"`
+	MTL             bool                 `json:"mtl"`
+	OTL             bool                 `json:"otl"`
+	Hardsub         bool                 `json:"hardsub"`
+	Batch           bool                 `json:"batch"`
+	Hidden          bool                 `json:"hidden"`
+	Complete        bool                 `json:"complete"`
+	Anonymous       bool                 `json:"anonymous"`
+	AudioLangs      string               `json:"audio_langs"`
+	SubLangs        string               `json:"sub_langs"`
+	FansubLangs     string               `json:"fansub_langs"`
+	Description     string               `json:"description"`
 	PrimaryGroup    *primaryGroupPayload `json:"primary_group,omitempty"`
 	SecondaryGroups []any                `json:"secondary_groups"`
 	IgnoreWarnings  bool                 `json:"ignore_warnings,omitempty"`
@@ -91,15 +89,75 @@ func resolveBaseURL(cfg trackers.UploadRequest) string {
 
 func buildTitle(meta api.PreparedMetadata) string {
 	tag := strings.TrimSpace(meta.Tag)
-	cleanName := strings.TrimSpace(meta.ReleaseNameClean)
-	if cleanName == "" {
-		cleanName = strings.TrimSpace(meta.ReleaseName)
+	if tag == "" {
+		tag = "GapMoe"
 	}
 
-	if tag != "" && !strings.HasPrefix(cleanName, "["+tag+"]") {
-		return "[" + tag + "] " + cleanName
+	title := strings.TrimSpace(meta.Release.Title)
+	if title == "" {
+		title = strings.TrimSpace(meta.ReleaseNameClean)
 	}
-	return cleanName
+	if title == "" {
+		title = strings.TrimSpace(meta.ReleaseName)
+	}
+
+	if idx := strings.Index(title, " AKA "); idx != -1 {
+		title = strings.TrimSpace(title[:idx])
+	}
+	if strings.HasPrefix(title, "[") && strings.Contains(title, "]") {
+		idx := strings.Index(title, "]")
+		title = strings.TrimSpace(title[idx+1:])
+	}
+	if strings.HasSuffix(title, "-"+tag) {
+		title = strings.TrimSuffix(title, "-"+tag)
+	}
+
+	year := meta.Release.Year
+
+	var parts []string
+	if res := strings.TrimSpace(meta.Release.Resolution); res != "" {
+		parts = append(parts, res)
+	}
+
+	source := strings.TrimSpace(meta.Release.Source)
+	relType := strings.TrimSpace(meta.Type)
+	if strings.EqualFold(relType, "REMUX") {
+		if source != "" {
+			parts = append(parts, source+" REMUX")
+		} else {
+			parts = append(parts, "BluRay REMUX")
+		}
+	} else if source != "" {
+		parts = append(parts, source)
+	}
+
+	if meta.Edition != "" {
+		parts = append(parts, meta.Edition)
+	}
+
+	if vc := strings.TrimSpace(meta.VideoCodec); vc != "" {
+		parts = append(parts, vc)
+	}
+
+	audio := strings.TrimSpace(meta.Audio)
+	if audio != "" {
+		if meta.Channels != "" {
+			parts = append(parts, audio+" "+meta.Channels)
+		} else {
+			parts = append(parts, audio)
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("[" + tag + "] " + title)
+	if year > 0 && !strings.Contains(title, fmt.Sprintf("(%d)", year)) && !strings.Contains(title, fmt.Sprintf("%d", year)) {
+		sb.WriteString(fmt.Sprintf(" (%d)", year))
+	}
+	if len(parts) > 0 {
+		sb.WriteString(" [" + strings.Join(parts, " ") + "]")
+	}
+
+	return strings.TrimSpace(sb.String())
 }
 
 func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayload, error) {
@@ -196,22 +254,21 @@ func upload(ctx context.Context, req trackers.UploadRequest) (api.UploadSummary,
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return api.UploadSummary{}, wrapError("read response", err)
-	}
-
-	if resp.StatusCode >= 400 {
-		return api.UploadSummary{}, fmt.Errorf("trackers: nekobt upload failed status=%d: %s", resp.StatusCode, redaction.RedactValue(string(body), nil))
+		return api.UploadSummary{}, wrapError("read response body", err)
 	}
 
 	var res uploadResponse
-	if err := json.Unmarshal(body, &res); err != nil {
-		return api.UploadSummary{}, wrapError("unmarshal response", err)
+	if err := json.Unmarshal(bodyBytes, &res); err != nil {
+		return api.UploadSummary{}, wrapError("parse response JSON: "+string(bodyBytes), err)
 	}
 
-	if res.Error {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 || res.Error {
 		errMsg := res.Message
+		if errMsg == "" {
+			errMsg = string(bodyBytes)
+		}
 		if len(res.Fails) > 0 {
 			errMsg += " - " + strings.Join(res.Fails, ", ")
 		}
@@ -282,4 +339,3 @@ func prepareNekoBTTorrentBytes(torrentPath string, customAnnounce string) ([]byt
 	}
 	return buf.Bytes(), nil
 }
-
