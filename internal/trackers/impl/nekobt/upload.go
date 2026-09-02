@@ -88,7 +88,7 @@ func resolveBaseURL(cfg trackers.UploadRequest) string {
 }
 
 func buildTitle(meta api.PreparedMetadata) string {
-	tag := strings.TrimSpace(meta.Tag)
+	tag := strings.TrimPrefix(strings.TrimSpace(meta.Tag), "-")
 	if tag == "" {
 		tag = "GapMoe"
 	}
@@ -101,15 +101,22 @@ func buildTitle(meta api.PreparedMetadata) string {
 		title = strings.TrimSpace(meta.ReleaseName)
 	}
 
+	// Strip " AKA ..." suffix
 	if idx := strings.Index(title, " AKA "); idx != -1 {
 		title = strings.TrimSpace(title[:idx])
 	}
+	// Strip existing [Group] prefix if present
 	if strings.HasPrefix(title, "[") && strings.Contains(title, "]") {
 		idx := strings.Index(title, "]")
 		title = strings.TrimSpace(title[idx+1:])
 	}
-	if strings.HasSuffix(title, "-"+tag) {
-		title = strings.TrimSuffix(title, "-"+tag)
+	// Strip trailing " -GapMoe" or "-GapMoe"
+	for _, suffix := range []string{"-" + tag, " -" + tag} {
+		if strings.HasSuffix(title, suffix) {
+			title = strings.TrimSuffix(title, suffix)
+			title = strings.TrimSpace(title)
+			break
+		}
 	}
 
 	year := meta.Release.Year
@@ -141,11 +148,12 @@ func buildTitle(meta api.PreparedMetadata) string {
 
 	audio := strings.TrimSpace(meta.Audio)
 	if audio != "" {
-		if meta.Channels != "" {
-			parts = append(parts, audio+" "+meta.Channels)
-		} else {
-			parts = append(parts, audio)
+		channels := strings.TrimSpace(meta.Channels)
+		// Only append channels if they are not already embedded in the audio string
+		if channels != "" && !strings.Contains(audio, channels) {
+			audio = audio + " " + channels
 		}
+		parts = append(parts, audio)
 	}
 
 	var sb strings.Builder
@@ -188,9 +196,12 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 	}
 	description := buildDescription(req, assets)
 
+	title := buildTitle(meta)
+	req.Logger.Debugf("trackers: nekobt payload title=%q tag=%q release_name=%q", title, meta.Tag, meta.ReleaseName)
+
 	payload := uploadPayload{
 		Torrent:         base64.StdEncoding.EncodeToString(torrentBytes),
-		Title:           buildTitle(meta),
+		Title:           title,
 		Movie:           isMovie,
 		Category:        1,
 		VideoType:       resolveNekoBTVideoType(meta),
