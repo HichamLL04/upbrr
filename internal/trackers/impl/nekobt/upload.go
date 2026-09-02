@@ -154,7 +154,7 @@ func buildTitle(meta api.PreparedMetadata) string {
 		sb.WriteString(fmt.Sprintf(" (%d)", year))
 	}
 	if len(parts) > 0 {
-		sb.WriteString(" [" + strings.Join(parts, " ") + "]")
+		sb.WriteString(" (" + strings.Join(parts, " ") + ")")
 	}
 
 	return strings.TrimSpace(sb.String())
