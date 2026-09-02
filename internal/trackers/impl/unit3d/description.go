@@ -18,7 +18,14 @@ func buildUnit3DDescription(ctx context.Context, tracker string, meta api.Prepar
 	if strings.EqualFold(strings.TrimSpace(tracker), "ACM") {
 		return buildACMDescription(ctx, meta, appConfig, trackerConfig, logger, keptDescription, menuImages, screenshots)
 	}
-	description, err := descriptionunit3d.BuildDescription(ctx, meta, appConfig, trackerConfig, logger, keptDescription, menuImages, screenshots)
+
+	// NOBS uses 600px thumbnails and centered images regardless of global setting.
+	nobsCfg := appConfig
+	if strings.EqualFold(strings.TrimSpace(tracker), "NOBS") {
+		nobsCfg.Description.ThumbnailSize = 600
+	}
+
+	description, err := descriptionunit3d.BuildDescription(ctx, meta, nobsCfg, trackerConfig, logger, keptDescription, menuImages, screenshots)
 	if err != nil {
 		return "", fmt.Errorf("trackers: %w", err)
 	}
@@ -52,8 +59,23 @@ func buildUnit3DDescription(ctx context.Context, tracker string, meta api.Prepar
 			}
 		}
 	}
+	// NOBS: append source credit when the release group tag is a known tracker name.
+	if strings.EqualFold(strings.TrimSpace(tracker), "NOBS") {
+		rawName := strings.TrimSpace(meta.ReleaseName)
+		if rawName == "" {
+			rawName = strings.TrimSpace(meta.ReleaseNameClean)
+		}
+		if credit := buildNOBSSourceCredit(rawName, meta, trackerConfig.TagForCustomRelease); credit != "" {
+			if description != "" {
+				description = description + "\n\n" + credit
+			} else {
+				description = credit
+			}
+		}
+	}
 	return description, nil
 }
+
 
 func extractYouTubeID(urlStr string) string {
 	urlStr = strings.TrimSpace(urlStr)

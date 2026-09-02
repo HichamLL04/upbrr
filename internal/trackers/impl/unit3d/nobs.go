@@ -15,8 +15,30 @@ func siteNOBSProfile() unit3DSiteProfile {
 	return unit3DSiteProfile{
 		resolveTypeID:       resolveUnit3DNOBSTypeID,
 		resolveResolutionID: resolveUnit3DNOBSResolutionID,
+		resolveCategoryID:   resolveUnit3DNOBSCategoryID,
 	}
 }
+
+// resolveUnit3DNOBSCategoryID maps upbrr category + anime flag to NOBS category IDs:
+//
+//	1 = Movies, 2 = TV, 4 = Anime Movies, 5 = Anime TV Shows
+func resolveUnit3DNOBSCategoryID(meta api.PreparedMetadata) string {
+	category := resolveUnit3DCategory(meta)
+	isAnime := meta.Anime ||
+		strings.EqualFold(strings.TrimSpace(meta.Release.Category), "ANIME")
+
+	switch {
+	case isAnime && strings.EqualFold(category, "TV"):
+		return "5" // Anime TV Shows
+	case isAnime:
+		return "4" // Anime Movies
+	case strings.EqualFold(category, "TV"):
+		return "2" // TV
+	default:
+		return "1" // Movies
+	}
+}
+
 
 func resolveUnit3DNOBSTypeID(meta api.PreparedMetadata) string {
 	mapping := map[string]string{
@@ -163,12 +185,58 @@ func BuildNOBSName(meta api.PreparedMetadata, customTag string) string {
 	result = strings.TrimSpace(strings.Join(strings.Fields(result), " "))
 
 	tag := resolveEMUWGroupTag(rawName, meta, customTag)
-	if tag != "" {
+	// Omit tags that are themselves tracker/site names — source credit belongs
+	// in the description, not the release name.
+	if tag != "" && !isNOBSTrackerNameTag(tag) {
 		result += "-" + tag
 	}
 
 	return result
 }
+
+// isNOBSTrackerNameTag returns true when the group tag is a known tracker or
+// site identifier that should not appear in the NOBS release name.
+// These tags are stripped from the name; source credit is added to the
+// description by buildNOBSSourceCredit instead.
+func isNOBSTrackerNameTag(tag string) bool {
+	known := []string{
+		"nobs", "rawsmoke",
+		"blu", "blutopia",
+		"aither",
+		"bhd", "beyondhdfilms",
+		"ptp", "passthepopcorn",
+		"hdb", "hdbits",
+		"mtv", "morethantv",
+		"ar", "avistaz",
+		"cnl", "cinelust",
+		"tik", "tvchaosuk",
+		"oe", "onlyencodes",
+		"emuw", "emuwarez",
+		"lt", "latorre",
+		"milnueve", "mn",
+		"shri", "sinhronizacija",
+		"cbr", "cinemaz",
+	}
+	lower := strings.ToLower(strings.TrimSpace(tag))
+	for _, k := range known {
+		if lower == k {
+			return true
+		}
+	}
+	return false
+}
+
+// buildNOBSSourceCredit returns a BBCode credit line when the source release
+// tag is a known tracker name, so that attribution appears in the description.
+func buildNOBSSourceCredit(rawName string, meta api.PreparedMetadata, customTag string) string {
+	tag := resolveEMUWGroupTag(rawName, meta, customTag)
+	if tag == "" || !isNOBSTrackerNameTag(tag) {
+		return ""
+	}
+	return "[center][b]Fuente:[/b] " + tag + "[/center]"
+}
+
+
 
 func resolveNOBSFormat(rawName string, meta api.PreparedMetadata) string {
 	upper := strings.ToUpper(rawName)
