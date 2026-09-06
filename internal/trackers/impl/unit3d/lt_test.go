@@ -151,7 +151,27 @@ func TestBuildLTName(t *testing.T) {
 				Channels:       "5.1",
 				AudioLanguages: []string{"Spanish"},
 			},
-			expected: "Wednesday S01 1080p NF WEB-DL DD+ 5.1 Atmos H.264 [CAST]-Muffin",
+			expected: "Wednesday 2022 S01 1080p NF WEB-DL DD+ 5.1 Atmos H.264 [CAST]-Muffin",
+		},
+		{
+			name: "Magi TV Season S01 with Year",
+			meta: api.PreparedMetadata{
+				ReleaseName: "Magi.The.Labyrinth.of.Magic.S01.1080p.BluRay.Dual-Audio.FLAC.2.0-GapMoe",
+				Release: api.ReleaseInfo{
+					Title:      "Magi",
+					Year:       2012,
+					Resolution: "1080p",
+					Type:       "ENCODE",
+					Group:      "GapMoe",
+				},
+				SeasonStr:         "S01",
+				Source:            "BluRay",
+				VideoCodec:        "x265",
+				Audio:             "FLAC",
+				Channels:          "2.0",
+				SubtitleLanguages: []string{"Spanish"},
+			},
+			expected: "Magi 2012 S01 1080p BluRay FLAC 2.0 x265 [SUBS]-GapMoe",
 		},
 		{
 			name: "Wednesday TV Episode S01E01",

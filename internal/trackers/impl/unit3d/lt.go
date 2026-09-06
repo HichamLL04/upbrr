@@ -90,13 +90,17 @@ func BuildLTName(meta api.PreparedMetadata, customTag string) string {
 	}
 
 	title := resolveLTTitle(meta)
-	yearStr := ""
-	if meta.Release.Year > 0 {
-		yearStr = strconv.Itoa(meta.Release.Year)
+	year := meta.Release.Year
+	if year == 0 && meta.ExternalMetadata.TMDB != nil && meta.ExternalMetadata.TMDB.Year > 0 {
+		year = meta.ExternalMetadata.TMDB.Year
 	}
-
-	category := resolveUnit3DCategory(meta)
-	isTV := category == "TV"
+	if year == 0 && meta.ExternalMetadata.IMDB != nil && meta.ExternalMetadata.IMDB.Year > 0 {
+		year = meta.ExternalMetadata.IMDB.Year
+	}
+	yearStr := ""
+	if year > 0 {
+		yearStr = strconv.Itoa(year)
+	}
 
 	seToken := formatSeasonEpisodeToken(meta, rawName)
 
@@ -130,17 +134,12 @@ func BuildLTName(meta api.PreparedMetadata, customTag string) string {
 		parts = append(parts, title)
 	}
 
-	// Year & Season/Episode placement
-	if isTV || seToken != "" {
-		if seToken != "" {
-			parts = append(parts, seToken)
-		} else if yearStr != "" {
-			parts = append(parts, yearStr)
-		}
-	} else {
-		if yearStr != "" {
-			parts = append(parts, yearStr)
-		}
+	// Year & Season/Episode placement: Titulo [Año] S## [S##E##]
+	if yearStr != "" && !strings.Contains(title, yearStr) {
+		parts = append(parts, yearStr)
+	}
+	if seToken != "" {
+		parts = append(parts, seToken)
 	}
 
 	// Editions / Cut / Ratio
