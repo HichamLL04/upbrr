@@ -339,6 +339,7 @@ func trackerAllowedYAMLKeys(trackerName string) map[string]struct{} {
 	addGlobal := func(keys map[string]struct{}) map[string]struct{} {
 		keys["favicon_url"] = struct{}{}
 		keys["image_host"] = struct{}{}
+		keys["groups"] = struct{}{}
 		return keys
 	}
 	if len(trackerSchema) == 0 {

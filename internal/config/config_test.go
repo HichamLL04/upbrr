@@ -1273,3 +1273,71 @@ func TestResolveTrackerDomain(t *testing.T) {
 		})
 	}
 }
+
+func TestTrackersConfigGroupsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Config{
+		MainSettings:       MainSettingsConfig{TMDBAPI: "x"},
+		ScreenshotHandling: ScreenshotHandlingConfig{Screens: 1},
+		Trackers: TrackersConfig{
+			DefaultTrackers: CSVList{"NEKOBT"},
+			Trackers: map[string]TrackerConfig{
+				"NEKOBT": {
+					URL:     "https://nekobt.to",
+					GroupID: "12583462003515",
+					Groups: map[string]string{
+						"GapMoe": "12583462003515",
+						"Fool":   "13633525360440",
+					},
+				},
+			},
+		},
+	}
+	configureConfigSecretEncryption(t, cfg)
+
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "config.yaml")
+	if err := ExportToYAML(cfg, path); err != nil {
+		t.Fatalf("export yaml: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read yaml: %v", err)
+	}
+	text := string(data)
+
+	if !strings.Contains(text, "Fool: \"13633525360440\"") && !strings.Contains(text, "Fool: 13633525360440") {
+		t.Fatalf("NEKOBT should include Fool in yaml export, got:\n%s", text)
+	}
+	if !strings.Contains(text, "GapMoe: \"12583462003515\"") && !strings.Contains(text, "GapMoe: 12583462003515") {
+		t.Fatalf("NEKOBT should include GapMoe in yaml export, got:\n%s", text)
+	}
+
+	var loaded Config
+	if err := yaml.Unmarshal(data, &loaded); err != nil {
+		t.Fatalf("unmarshal yaml: %v", err)
+	}
+	nekobt := loaded.Trackers.Trackers["NEKOBT"]
+	if nekobt.Groups["Fool"] != "13633525360440" {
+		t.Errorf("expected Fool group ID 13633525360440, got %q", nekobt.Groups["Fool"])
+	}
+	if nekobt.Groups["GapMoe"] != "12583462003515" {
+		t.Errorf("expected GapMoe group ID 12583462003515, got %q", nekobt.Groups["GapMoe"])
+	}
+
+	// JSON round trip
+	jsonData, err := json.Marshal(cfg.Trackers)
+	if err != nil {
+		t.Fatalf("marshal json: %v", err)
+	}
+	var loadedTrackers TrackersConfig
+	if err := json.Unmarshal(jsonData, &loadedTrackers); err != nil {
+		t.Fatalf("unmarshal json: %v", err)
+	}
+	nekobtJSON := loadedTrackers.Trackers["NEKOBT"]
+	if nekobtJSON.Groups["Fool"] != "13633525360440" {
+		t.Errorf("json: expected Fool group ID 13633525360440, got %q", nekobtJSON.Groups["Fool"])
+	}
+}

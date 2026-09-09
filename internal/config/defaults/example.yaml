@@ -371,6 +371,7 @@ trackers:
     url: "https://nekobt.to"
     anon: false
     group_id: ""
+    groups: {}
   NOBS:
     link_dir_name: ""
     api_key: ""

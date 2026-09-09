@@ -692,3 +692,33 @@ func TestIsPythonFile(t *testing.T) {
 		}
 	}
 }
+
+func TestImportFromContentPreservesTrackerGroups(t *testing.T) {
+	t.Parallel()
+
+	yamlContent := []byte(`
+trackers:
+  NEKOBT:
+    url: "https://nekobt.to"
+    group_id: "12583462003515"
+    groups:
+      GapMoe: "12583462003515"
+      Fool: "13633525360440"
+`)
+
+	cfg, _, err := ImportFromContent("config.yaml", yamlContent)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	nekobt := cfg.Trackers.Trackers["NEKOBT"]
+	if nekobt.Groups == nil {
+		t.Fatal("expected NEKOBT Groups to be non-nil")
+	}
+	if nekobt.Groups["Fool"] != "13633525360440" {
+		t.Errorf("expected Fool ID 13633525360440, got %q", nekobt.Groups["Fool"])
+	}
+	if nekobt.Groups["GapMoe"] != "12583462003515" {
+		t.Errorf("expected GapMoe ID 12583462003515, got %q", nekobt.Groups["GapMoe"])
+	}
+}
