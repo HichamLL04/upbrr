@@ -245,28 +245,44 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 		IgnoreWarnings:  true,
 	}
 
-	// Only attach PrimaryGroup if this upload's group tag matches the user's configured group.
-	// NekoBT validates that the "[Release Group]" in the title matches the primary_group's registered tag.
-	// If uploading an external group release (e.g. Fool), primary_group must be omitted.
-	configuredGroupTag := strings.TrimPrefix(strings.TrimSpace(req.TrackerConfig.TagForCustomRelease), "-")
-	if configuredGroupTag == "" {
-		configuredGroupTag = "GapMoe"
-	}
 	releaseTag := strings.TrimPrefix(strings.TrimSpace(meta.Tag), "-")
-
-	if groupID := strings.TrimSpace(req.TrackerConfig.GroupID); groupID != "" {
-		if releaseTag == "" || strings.EqualFold(releaseTag, configuredGroupTag) {
-			payload.PrimaryGroup = &primaryGroupPayload{
-				ID:      groupID,
-				Members: []any{},
-			}
-		} else {
-			logger.Infof("trackers: nekobt omitting primary_group %s for external release group %q (configured group: %q)", groupID, releaseTag, configuredGroupTag)
+	if groupID := resolveNekoBTGroupID(releaseTag, req.TrackerConfig); groupID != "" {
+		payload.PrimaryGroup = &primaryGroupPayload{
+			ID:      groupID,
+			Members: []any{},
 		}
+	} else if req.TrackerConfig.GroupID != "" {
+		logger.Infof("trackers: nekobt omitting primary_group for release group %q (no matching group ID configured)", releaseTag)
 	}
 
 	return payload, nil
 }
+
+func resolveNekoBTGroupID(tag string, cfg config.TrackerConfig) string {
+	tagTrimmed := strings.TrimPrefix(strings.TrimSpace(tag), "-")
+	tagLower := strings.ToLower(tagTrimmed)
+
+	// 1. Check groups mapping if configured
+	if len(cfg.Groups) > 0 {
+		for groupName, id := range cfg.Groups {
+			if strings.EqualFold(strings.TrimSpace(groupName), tagLower) && strings.TrimSpace(id) != "" {
+				return strings.TrimSpace(id)
+			}
+		}
+	}
+
+	// 2. Fall back to group_id if tag matches configured custom release tag or GapMoe
+	configuredGroupTag := strings.TrimPrefix(strings.TrimSpace(cfg.TagForCustomRelease), "-")
+	if configuredGroupTag == "" {
+		configuredGroupTag = "GapMoe"
+	}
+	if tagTrimmed == "" || strings.EqualFold(tagLower, strings.ToLower(configuredGroupTag)) {
+		return strings.TrimSpace(cfg.GroupID)
+	}
+
+	return ""
+}
+
 
 func upload(ctx context.Context, req trackers.UploadRequest) (api.UploadSummary, error) {
 	payload, err := preparePayload(ctx, req)
