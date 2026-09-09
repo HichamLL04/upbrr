@@ -18,6 +18,7 @@ import (
 
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/autobrr/upbrr/internal/config"
 	"github.com/autobrr/upbrr/internal/trackers"
 	"github.com/autobrr/upbrr/pkg/api"
 )
@@ -87,11 +88,20 @@ func resolveBaseURL(cfg trackers.UploadRequest) string {
 	return defaultBaseURL
 }
 
-func buildTitle(meta api.PreparedMetadata) string {
+func resolveNekoBTGroupTag(meta api.PreparedMetadata, cfg config.TrackerConfig) string {
 	tag := strings.TrimPrefix(strings.TrimSpace(meta.Tag), "-")
-	if tag == "" {
-		tag = "GapMoe"
+	if tag != "" {
+		return tag
 	}
+	custom := strings.TrimPrefix(strings.TrimSpace(cfg.TagForCustomRelease), "-")
+	if custom != "" {
+		return custom
+	}
+	return "GapMoe"
+}
+
+func buildTitle(meta api.PreparedMetadata, cfg config.TrackerConfig) string {
+	tag := resolveNekoBTGroupTag(meta, cfg)
 
 	title := strings.TrimSpace(meta.Release.Title)
 	if title == "" {
@@ -110,7 +120,7 @@ func buildTitle(meta api.PreparedMetadata) string {
 		idx := strings.Index(title, "]")
 		title = strings.TrimSpace(title[idx+1:])
 	}
-	// Strip trailing " -GapMoe" or "-GapMoe"
+	// Strip trailing " -Tag" or "-Tag"
 	for _, suffix := range []string{"-" + tag, " -" + tag} {
 		if strings.HasSuffix(title, suffix) {
 			title = strings.TrimSuffix(title, suffix)
@@ -120,6 +130,12 @@ func buildTitle(meta api.PreparedMetadata) string {
 	}
 
 	year := meta.Release.Year
+	if year == 0 && meta.ExternalMetadata.TMDB != nil && meta.ExternalMetadata.TMDB.Year > 0 {
+		year = meta.ExternalMetadata.TMDB.Year
+	}
+	if year == 0 && meta.ExternalMetadata.IMDB != nil && meta.ExternalMetadata.IMDB.Year > 0 {
+		year = meta.ExternalMetadata.IMDB.Year
+	}
 
 	var parts []string
 	if res := strings.TrimSpace(meta.Release.Resolution); res != "" {
@@ -196,8 +212,15 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 	}
 	description := buildDescription(req, assets)
 
-	title := buildTitle(meta)
-	req.Logger.Debugf("trackers: nekobt payload title=%q tag=%q release_name=%q", title, meta.Tag, meta.ReleaseName)
+	logger := req.Logger
+	if logger == nil {
+		logger = api.NopLogger{}
+	}
+
+	title := buildTitle(meta, req.TrackerConfig)
+	audioLangs := resolveNekoBTLanguages(meta.AudioLanguages)
+	subLangs := resolveNekoBTLanguages(meta.SubtitleLanguages)
+	logger.Debugf("trackers: nekobt payload title=%q tag=%q audio_langs=%q sub_langs=%q", title, meta.Tag, audioLangs, subLangs)
 
 	payload := uploadPayload{
 		Torrent:         base64.StdEncoding.EncodeToString(torrentBytes),
@@ -214,18 +237,31 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 		Hidden:          false,
 		Complete:        false,
 		Anonymous:       req.TrackerConfig.Anon,
-		AudioLangs:      resolveNekoBTLanguages(meta.AudioLanguages),
-		SubLangs:        resolveNekoBTLanguages(meta.SubtitleLanguages),
+		AudioLangs:      audioLangs,
+		SubLangs:        subLangs,
 		FansubLangs:     "",
 		Description:     description,
 		SecondaryGroups: []any{},
 		IgnoreWarnings:  true,
 	}
 
+	// Only attach PrimaryGroup if this upload's group tag matches the user's configured group.
+	// NekoBT validates that the "[Release Group]" in the title matches the primary_group's registered tag.
+	// If uploading an external group release (e.g. Fool), primary_group must be omitted.
+	configuredGroupTag := strings.TrimPrefix(strings.TrimSpace(req.TrackerConfig.TagForCustomRelease), "-")
+	if configuredGroupTag == "" {
+		configuredGroupTag = "GapMoe"
+	}
+	releaseTag := strings.TrimPrefix(strings.TrimSpace(meta.Tag), "-")
+
 	if groupID := strings.TrimSpace(req.TrackerConfig.GroupID); groupID != "" {
-		payload.PrimaryGroup = &primaryGroupPayload{
-			ID:      groupID,
-			Members: []any{},
+		if releaseTag == "" || strings.EqualFold(releaseTag, configuredGroupTag) {
+			payload.PrimaryGroup = &primaryGroupPayload{
+				ID:      groupID,
+				Members: []any{},
+			}
+		} else {
+			logger.Infof("trackers: nekobt omitting primary_group %s for external release group %q (configured group: %q)", groupID, releaseTag, configuredGroupTag)
 		}
 	}
 
@@ -308,8 +344,9 @@ func buildUploadDryRun(ctx context.Context, req trackers.UploadRequest) (api.Tra
 	}
 
 	return api.TrackerDryRunEntry{
-		Tracker: "NEKOBT",
-		Status:  "ready",
+		Tracker:     "NEKOBT",
+		Status:      "ready",
+		ReleaseName: payload.Title,
 		Payload: map[string]string{
 			"title":       payload.Title,
 			"movie":       strconv.FormatBool(payload.Movie),

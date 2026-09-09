@@ -103,8 +103,10 @@ func normalizeNekoBTLanguage(code string) string {
 		return "it"
 	case "rus", "ru", "russian":
 		return "ru"
-	case "chi", "zho", "zh", "chinese":
-		return "zh"
+	case "zh-hant", "hant", "traditional chinese", "chi-hant", "zho-hant", "zh-tw", "zh-hk":
+		return "zh-hant"
+	case "zh-hans", "hans", "simplified chinese", "chi-hans", "zho-hans", "zh-cn", "zh-sg", "chi", "zho", "zh", "chinese":
+		return "zh-hans"
 	case "kor", "ko", "korean":
 		return "ko"
 	}

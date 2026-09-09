@@ -71,14 +71,15 @@ func TestNekoBTMetadataMapping(t *testing.T) {
 	})
 
 	t.Run("resolves languages", func(t *testing.T) {
-		langs := []string{"Japanese", "English", "Spanish", "Latin"}
+		langs := []string{"Japanese", "English", "Spanish", "Latin", "Chinese", "zh-hant"}
 		got := resolveNekoBTLanguages(langs)
-		expected := "ja,en,es-es,es-419"
+		expected := "ja,en,es-es,es-419,zh-hans,zh-hant"
 		if got != expected {
 			t.Fatalf("expected languages %q, got %q", expected, got)
 		}
 	})
 }
+
 
 func TestNekoBTUploadAndDryRun(t *testing.T) {
 	t.Parallel()

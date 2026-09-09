@@ -30,7 +30,7 @@ func (definition) BuildUploadDryRun(ctx context.Context, req trackers.UploadRequ
 }
 
 func (definition) BuildReleaseName(meta api.PreparedMetadata, trackerConfig config.TrackerConfig) string {
-	return buildTitle(meta)
+	return buildTitle(meta, trackerConfig)
 }
 
 func (definition) BuildDescription(ctx context.Context, req trackers.DescriptionRequest) (trackers.DescriptionResult, error) {
