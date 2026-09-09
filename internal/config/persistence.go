@@ -421,6 +421,8 @@ func mergeStoredConfigMapWithReport(base map[string]any, overlay map[string]any,
 					return report, err
 				}
 				report.append(childReport)
+			} else if isStoredTrackerEntryExtensionPath(path) {
+				base[key] = overlayValue
 			}
 			continue
 		}
@@ -622,6 +624,16 @@ func isStoredTrackerEntryPath(path string) bool {
 		return false
 	}
 	return !strings.Contains(strings.TrimPrefix(path, prefix), ".")
+}
+
+// isStoredTrackerEntryExtensionPath reports deeper extension maps inside a tracker
+// entry, such as Groups or other user-defined nested mappings.
+func isStoredTrackerEntryExtensionPath(path string) bool {
+	const prefix = "Trackers.Trackers."
+	if !strings.HasPrefix(path, prefix) {
+		return false
+	}
+	return strings.Contains(strings.TrimPrefix(path, prefix), ".")
 }
 
 // asciiFoldKey lowercases ASCII letters without treating Unicode lookalikes as

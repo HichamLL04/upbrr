@@ -251,6 +251,7 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 			ID:      groupID,
 			Members: []any{},
 		}
+		logger.Debugf("trackers: nekobt attached primary_group ID=%s for release group %q", groupID, releaseTag)
 	} else if req.TrackerConfig.GroupID != "" {
 		logger.Infof("trackers: nekobt omitting primary_group for release group %q (no matching group ID configured)", releaseTag)
 	}
@@ -363,17 +364,23 @@ func buildUploadDryRun(ctx context.Context, req trackers.UploadRequest) (api.Tra
 		Tracker:     "NEKOBT",
 		Status:      "ready",
 		ReleaseName: payload.Title,
-		Payload: map[string]string{
-			"title":       payload.Title,
-			"movie":       strconv.FormatBool(payload.Movie),
-			"video_type":  strconv.Itoa(payload.VideoType),
-			"video_codec": strconv.Itoa(payload.VideoCodec),
-			"level":       strconv.Itoa(payload.Level),
-			"mtl":         strconv.FormatBool(payload.MTL),
-			"batch":       strconv.FormatBool(payload.Batch),
-			"audio_langs": payload.AudioLangs,
-			"sub_langs":   payload.SubLangs,
-		},
+		Payload: func() map[string]string {
+			p := map[string]string{
+				"title":       payload.Title,
+				"movie":       strconv.FormatBool(payload.Movie),
+				"video_type":  strconv.Itoa(payload.VideoType),
+				"video_codec": strconv.Itoa(payload.VideoCodec),
+				"level":       strconv.Itoa(payload.Level),
+				"mtl":         strconv.FormatBool(payload.MTL),
+				"batch":       strconv.FormatBool(payload.Batch),
+				"audio_langs": payload.AudioLangs,
+				"sub_langs":   payload.SubLangs,
+			}
+			if payload.PrimaryGroup != nil {
+				p["primary_group"] = payload.PrimaryGroup.ID
+			}
+			return p
+		}(),
 	}, nil
 }
 

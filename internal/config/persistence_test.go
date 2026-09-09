@@ -1763,3 +1763,51 @@ func TestRepoDBPath(t *testing.T) {
 		t.Fatalf("repoDBPath for repo without DBPath got %q, want empty", got)
 	}
 }
+
+type mockMapFullConfigRepo struct {
+	data map[string]any
+}
+
+func (m *mockMapFullConfigRepo) LoadFullConfig(_ context.Context, dest any) error {
+	payload, err := json.Marshal(m.data)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(payload, dest)
+}
+
+func TestLoadFullConfigPreservesTrackerGroups(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockMapFullConfigRepo{
+		data: map[string]any{
+			"Trackers": map[string]any{
+				"Trackers": map[string]any{
+					"NEKOBT": map[string]any{
+						"URL": "https://nekobt.to",
+						"Groups": map[string]any{
+							"Fool":   "13633525360440",
+							"GapMoe": "12583462003515",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cfg, _, err := LoadFromDatabaseWithDefaultBackfill(context.Background(), repo)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	nekobt := cfg.Trackers.Trackers["NEKOBT"]
+	if nekobt.Groups == nil {
+		t.Fatal("expected NEKOBT Groups to be non-nil")
+	}
+	if nekobt.Groups["Fool"] != "13633525360440" {
+		t.Errorf("expected Fool ID 13633525360440, got %q", nekobt.Groups["Fool"])
+	}
+	if nekobt.Groups["GapMoe"] != "12583462003515" {
+		t.Errorf("expected GapMoe ID 12583462003515, got %q", nekobt.Groups["GapMoe"])
+	}
+}
