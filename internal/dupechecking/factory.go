@@ -46,6 +46,7 @@ func buildHandlers(deps handlerDeps) map[string]searchHandler {
 	handlers["HDT"] = hdtHandler{cfg: deps.cfg, http: deps.http}
 	handlers["IS"] = isHandler{cfg: deps.cfg, http: deps.http}
 	handlers["PHD"] = phdHandler{cfg: deps.cfg, http: deps.http, logger: deps.logger}
+	handlers["NEKOBT"] = stubHandler{}
 	handlers["PTS"] = ptsHandler{cfg: deps.cfg, http: deps.http}
 	handlers["THR"] = thrHandler{cfg: deps.cfg, http: deps.http}
 

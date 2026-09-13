@@ -2034,6 +2034,40 @@ func TestBuildUnit3DNameLT(t *testing.T) {
 		}
 	})
 
+	t.Run("does not add CAST tag when audio carries Latino", func(t *testing.T) {
+		tempDir := t.TempDir()
+		filePath := filepath.Join(tempDir, "mediainfo.json")
+		mediaInfoJSON := `{
+			"media": {
+				"track": [
+					{"@type": "General"},
+					{"@type": "Video"},
+					{"@type": "Audio", "Language": "es-ES", "Title": "Castellano (AC3 2.0)"},
+					{"@type": "Audio", "Language": "es-419", "Title": "Español Latino (EAC3 2.0)"}
+				]
+			}
+		}`
+		if err := os.WriteFile(filePath, []byte(mediaInfoJSON), 0o600); err != nil {
+			t.Fatalf("failed to write temp file: %v", err)
+		}
+
+		meta := api.PreparedMetadata{
+			ReleaseName:       "Movie.2024.1080p.Bluray-GRP",
+			Tag:               "GRP",
+			MediaInfoJSONPath: filePath,
+			ExternalMetadata: api.ExternalMetadata{
+				TMDB: &api.TMDBMetadata{
+					Title: "Movie",
+				},
+			},
+		}
+		got := BuildUnit3DName("LT", meta, config.TrackerConfig{})
+		expected := "Movie 1080p BluRay-GRP"
+		if got != expected {
+			t.Fatalf("expected name to be %q, got %q", expected, got)
+		}
+	})
+
 	t.Run("adds SUBS tag when no Spanish audio", func(t *testing.T) {
 		tempDir := t.TempDir()
 		filePath := filepath.Join(tempDir, "mediainfo.json")

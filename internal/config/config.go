@@ -51,6 +51,10 @@ type MainSettingsConfig struct {
 	UseFavicons         bool   `yaml:"use_favicons"`
 	FaviconOnly         bool   `yaml:"favicon_only"`
 	SceneDetection      bool   `yaml:"scene_detection"`
+	// MediaInfoPath is the path to the MediaInfo binary. When empty, the binary
+	// is auto-detected from PATH (mediainfo on Linux, MediaInfo.exe on Windows).
+	// Falls back to the built-in Go module analyzer when not found.
+	MediaInfoPath string `yaml:"mediainfo_path"`
 }
 
 type mainSettingsConfigAlias MainSettingsConfig

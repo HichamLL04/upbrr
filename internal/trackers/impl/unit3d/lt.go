@@ -4,6 +4,8 @@
 package unit3d
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
@@ -614,6 +616,66 @@ func resolveLTChannels(upper string, meta api.PreparedMetadata) string {
 	return ""
 }
 
+func containsLatinoToken(s string) bool {
+	fields := strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return r == '.' || r == '_' || r == '-' || r == ' ' || r == '[' || r == ']' || r == '(' || r == ')'
+	})
+	for _, f := range fields {
+		if f == "latino" || f == "latin" || f == "lat" || f == "latam" || f == "es-419" {
+			return true
+		}
+	}
+	return false
+}
+
+func containsCastilianToken(s string) bool {
+	fields := strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return r == '.' || r == '_' || r == '-' || r == ' ' || r == '[' || r == ']' || r == '(' || r == ')'
+	})
+	for _, f := range fields {
+		if f == "castellano" || f == "castilian" || f == "cast" || f == "es-es" {
+			return true
+		}
+	}
+	return false
+}
+
+func isLatinoLanguageOrTitle(lang, title string) bool {
+	langLower := strings.ToLower(strings.TrimSpace(lang))
+	titleLower := strings.ToLower(strings.TrimSpace(title))
+
+	if audioLatinoCheck[langLower] || strings.Contains(langLower, "latin") || strings.Contains(langLower, "latino") || langLower == "lat" {
+		return true
+	}
+	for _, kw := range latinoKeywords {
+		if strings.Contains(titleLower, kw) {
+			return true
+		}
+	}
+	if strings.Contains(titleLower, "latam") || strings.Contains(titleLower, "español latino") || strings.Contains(titleLower, "espanol latino") {
+		return true
+	}
+	return false
+}
+
+func isCastilianLanguageOrTitle(lang, title string) bool {
+	langLower := strings.ToLower(strings.TrimSpace(lang))
+	titleLower := strings.ToLower(strings.TrimSpace(title))
+
+	if langLower == "es-es" || strings.Contains(langLower, "castellano") || strings.Contains(langLower, "castilian") {
+		return true
+	}
+	for _, kw := range castilianKeywords {
+		if strings.Contains(titleLower, kw) {
+			return true
+		}
+	}
+	if strings.Contains(titleLower, "españa") || strings.Contains(titleLower, "espana") {
+		return true
+	}
+	return false
+}
+
 func resolveLTLangTags(meta api.PreparedMetadata) []string {
 	tags := []string{}
 	hasLatinDub := false
@@ -623,48 +685,99 @@ func resolveLTLangTags(meta api.PreparedMetadata) []string {
 	origLang := resolveOriginalLanguage(meta)
 	origIsSpanish := isSpanishLanguageToken(origLang)
 
-	audioLangs := meta.AudioLanguages
-	subLangs := meta.SubtitleLanguages
-
 	if meta.MediaInfoJSONPath != "" {
 		if data, err := os.ReadFile(meta.MediaInfoJSONPath); err == nil {
-			text := strings.ToLower(string(data))
-			if strings.Contains(text, "castellano") {
-				hasCastDub = true
+			type miDoc struct {
+				Media struct {
+					Track []map[string]any `json:"track"`
+				} `json:"media"`
 			}
-			if strings.Contains(text, "sub") || strings.Contains(text, "\"text\"") {
-				hasSpanishSub = true
+			var doc miDoc
+			if err := json.Unmarshal(data, &doc); err == nil {
+				for _, track := range doc.Media.Track {
+					trackType := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", track["@type"])))
+					lang := namesTrackString(track, "Language", "Language_String", "Language_String2", "Language_String3")
+					title := namesTrackString(track, "Title", "Title_String", "Title_String2", "Title_String3")
+
+					if trackType == "audio" {
+						if strings.Contains(strings.ToLower(title), "commentary") {
+							continue
+						}
+						if isLatinoLanguageOrTitle(lang, title) {
+							hasLatinDub = true
+						}
+						if isCastilianLanguageOrTitle(lang, title) {
+							hasCastDub = true
+						}
+					} else if trackType == "text" {
+						lowerLang := strings.ToLower(lang)
+						lowerTitle := strings.ToLower(title)
+						if isSpanishLanguageToken(lowerLang) || strings.Contains(lowerLang, "spanish") || strings.Contains(lowerLang, "spa") ||
+							strings.Contains(lowerTitle, "spanish") || strings.Contains(lowerTitle, "español") || strings.Contains(lowerTitle, "castellano") || strings.Contains(lowerTitle, "latino") {
+							hasSpanishSub = true
+						}
+					}
+				}
 			}
 		}
 	}
 
-	for _, lang := range audioLangs {
+	for _, lang := range meta.AudioLanguages {
+		rawLower := strings.ToLower(strings.TrimSpace(lang))
 		normalized := strings.ToLower(languageutil.NormalizeLanguageDisplay(lang))
 		if normalized == "" {
-			normalized = strings.ToLower(strings.TrimSpace(lang))
+			normalized = rawLower
 		}
-		if strings.Contains(normalized, "latin") || strings.Contains(normalized, "latino") || normalized == "lat" {
+
+		if strings.Contains(rawLower, "latin") || strings.Contains(rawLower, "latino") || strings.Contains(rawLower, "latam") || strings.Contains(rawLower, "419") || audioLatinoCheck[rawLower] {
 			hasLatinDub = true
-		} else if strings.Contains(normalized, "castellano") || strings.Contains(normalized, "castilian") || normalized == "cast" {
+		} else if strings.Contains(normalized, "latin") || strings.Contains(normalized, "latino") {
+			hasLatinDub = true
+		}
+
+		if strings.Contains(rawLower, "castellano") || strings.Contains(rawLower, "castilian") || rawLower == "es-es" {
 			hasCastDub = true
-		} else if isSpanishLanguageToken(normalized) {
+		} else if strings.Contains(normalized, "castellano") || strings.Contains(normalized, "castilian") {
 			hasCastDub = true
 		}
 	}
 
-	for _, sub := range subLangs {
+	rawName := baseReleaseName(meta)
+	if containsLatinoToken(rawName) || containsLatinoToken(meta.Audio) {
+		hasLatinDub = true
+	}
+	if containsCastilianToken(rawName) || containsCastilianToken(meta.Audio) {
+		hasCastDub = true
+	}
+
+	// Fallback when only generic "Spanish" is present in AudioLanguages and no Latino was detected
+	if !hasLatinDub && !hasCastDub {
+		for _, lang := range meta.AudioLanguages {
+			rawLower := strings.ToLower(strings.TrimSpace(lang))
+			normalized := strings.ToLower(languageutil.NormalizeLanguageDisplay(lang))
+			if normalized == "" {
+				normalized = rawLower
+			}
+			if isSpanishLanguageToken(normalized) || isSpanishLanguageToken(rawLower) {
+				hasCastDub = true
+			}
+		}
+	}
+
+	for _, sub := range meta.SubtitleLanguages {
+		rawLower := strings.ToLower(strings.TrimSpace(sub))
 		normalized := strings.ToLower(languageutil.NormalizeLanguageDisplay(sub))
 		if normalized == "" {
-			normalized = strings.ToLower(strings.TrimSpace(sub))
+			normalized = rawLower
 		}
-		if isSpanishLanguageToken(normalized) || strings.Contains(normalized, "spanish") || strings.Contains(normalized, "spa") {
+		if isSpanishLanguageToken(normalized) || isSpanishLanguageToken(rawLower) || strings.Contains(normalized, "spanish") || strings.Contains(normalized, "spa") || strings.Contains(rawLower, "spanish") || strings.Contains(rawLower, "spa") {
 			hasSpanishSub = true
 		}
 	}
 
 	if !hasLatinDub && !hasCastDub && hasSpanishSub {
 		tags = append(tags, "[SUBS]")
-	} else if hasCastDub && !origIsSpanish {
+	} else if hasCastDub && !hasLatinDub && !origIsSpanish {
 		tags = append(tags, "[CAST]")
 	}
 

@@ -49,6 +49,9 @@ func ApplyEnvOverrides(cfg *Config) {
 	if value := os.Getenv(envPrefix + "DEFAULT_DB_PATH"); value != "" {
 		cfg.MainSettings.DBPath = strings.TrimSpace(value)
 	}
+	if value := os.Getenv(envPrefix + "MEDIAINFO_PATH"); value != "" {
+		cfg.MainSettings.MediaInfoPath = strings.TrimSpace(value)
+	}
 	if value := os.Getenv(envPrefix + "DEFAULT_TORRENT_CLIENT"); value != "" {
 		cfg.ClientSetup.DefaultClient = strings.TrimSpace(value)
 	}

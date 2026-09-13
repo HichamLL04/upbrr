@@ -202,7 +202,13 @@ func NewService(repo db.MetadataRepository, opts ...Option) *Service {
 		service.logger = api.NopLogger{}
 	}
 	if service.mi == nil {
-		service.mi = mediainfo.NewService(service.logger, nil)
+		if bin, ok := mediainfo.ResolveBin(service.cfg.MainSettings.MediaInfoPath); ok {
+			service.logger.Infof("mediainfo: using CLI binary path=%s", bin)
+			service.mi = mediainfo.NewService(service.logger, mediainfo.NewCLIAnalyzer(bin))
+		} else {
+			service.logger.Debugf("mediainfo: CLI binary not found, falling back to module analyzer (Encoded_Library_Settings will be missing for encodes)")
+			service.mi = mediainfo.NewService(service.logger, nil)
+		}
 	}
 	if service.tagsPath == "" {
 		service.tagsPath = resolveTagsPath("")

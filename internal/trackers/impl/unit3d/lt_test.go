@@ -192,6 +192,61 @@ func TestBuildLTName(t *testing.T) {
 			},
 			expected: "Wednesday S01E01 1080p NF WEB-DL DD+ 5.1 Atmos H.264 [CAST]-Muffin",
 		},
+		{
+			name: "Movie with Latino audio only - no CAST tag",
+			meta: api.PreparedMetadata{
+				ReleaseName: "Example Movie 2026 1080p WEB-DL AAC 2.0 H.264-GapMoe",
+				Release: api.ReleaseInfo{
+					Title:      "Example Movie",
+					Year:       2026,
+					Resolution: "1080p",
+					Type:       "WEBDL",
+					Group:      "GapMoe",
+				},
+				VideoCodec:     "H.264",
+				Audio:          "AAC",
+				Channels:       "2.0",
+				AudioLanguages: []string{"Latino"},
+			},
+			expected: "Example Movie 2026 1080p WEB-DL AAC 2.0 H.264-GapMoe",
+		},
+		{
+			name: "Movie with Dual Latino and Castilian audio - no CAST tag",
+			meta: api.PreparedMetadata{
+				ReleaseName: "Example Movie 2026 1080p WEB-DL AAC 2.0 H.264-GapMoe",
+				Release: api.ReleaseInfo{
+					Title:      "Example Movie",
+					Year:       2026,
+					Resolution: "1080p",
+					Type:       "WEBDL",
+					Group:      "GapMoe",
+				},
+				VideoCodec:     "H.264",
+				Audio:          "AAC",
+				Channels:       "2.0",
+				AudioLanguages: []string{"Castellano", "Latino"},
+			},
+			expected: "Example Movie 2026 1080p WEB-DL AAC 2.0 H.264-GapMoe",
+		},
+		{
+			name: "TV Episode with LAT in release name - no CAST tag",
+			meta: api.PreparedMetadata{
+				ReleaseName: "Example.Show.S02E01.1080p.BluRay.LAT.Opus.2.0-GapMoe",
+				Release: api.ReleaseInfo{
+					Title:      "Example Show",
+					Resolution: "1080p",
+					Type:       "ENCODE",
+					Group:      "GapMoe",
+				},
+				EpisodeStr:     "S02E01",
+				Source:         "BluRay",
+				VideoCodec:     "x265",
+				Audio:          "Opus",
+				Channels:       "2.0",
+				AudioLanguages: []string{"Spanish"},
+			},
+			expected: "Example Show S02E01 1080p BluRay Opus 2.0 x265-GapMoe",
+		},
 	}
 
 	for _, tt := range tests {
