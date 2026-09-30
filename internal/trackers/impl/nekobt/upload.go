@@ -19,7 +19,9 @@ import (
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/autobrr/upbrr/internal/config"
+	"github.com/autobrr/upbrr/internal/metadata/metautil"
 	"github.com/autobrr/upbrr/internal/trackers"
+	"github.com/autobrr/upbrr/internal/trackers/impl/commonhttp"
 	"github.com/autobrr/upbrr/pkg/api"
 )
 
@@ -66,6 +68,7 @@ type uploadPayload struct {
 	SubLangs        string               `json:"sub_langs"`
 	FansubLangs     string               `json:"fansub_langs"`
 	Description     string               `json:"description"`
+	MediaInfo       string               `json:"mediainfo,omitempty"`
 	PrimaryGroup    *primaryGroupPayload `json:"primary_group,omitempty"`
 	SecondaryGroups []any                `json:"secondary_groups"`
 	IgnoreWarnings  bool                 `json:"ignore_warnings,omitempty"`
@@ -177,6 +180,11 @@ func buildTitle(meta api.PreparedMetadata, cfg config.TrackerConfig) string {
 	if year > 0 && !strings.Contains(title, fmt.Sprintf("(%d)", year)) && !strings.Contains(title, fmt.Sprintf("%d", year)) {
 		sb.WriteString(fmt.Sprintf(" (%d)", year))
 	}
+	// Append season/episode identifier for TV content
+	seasonEp := strings.TrimSpace(meta.SeasonStr + meta.EpisodeStr)
+	if seasonEp != "" {
+		sb.WriteString(" " + seasonEp)
+	}
 	if len(parts) > 0 {
 		sb.WriteString(" (" + strings.Join(parts, " ") + ")")
 	}
@@ -218,9 +226,14 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 	}
 
 	title := buildTitle(meta, req.TrackerConfig)
-	audioLangs := resolveNekoBTLanguages(meta.AudioLanguages)
-	subLangs := resolveNekoBTLanguages(meta.SubtitleLanguages)
+	audioLangs := resolveNekoBTTrackLanguages(meta, "audio", meta.AudioLanguages)
+	subLangs := resolveNekoBTTrackLanguages(meta, "text", meta.SubtitleLanguages)
 	logger.Debugf("trackers: nekobt payload title=%q tag=%q audio_langs=%q sub_langs=%q", title, meta.Tag, audioLangs, subLangs)
+
+	miText := strings.TrimSpace(commonhttp.ReadOptionalFile(metautil.FirstNonEmptyTrimmed(meta.MediaInfoTextPath, meta.DVDVOBMediaInfoText)))
+	if len(miText) > 65536 {
+		miText = miText[:65536]
+	}
 
 	payload := uploadPayload{
 		Torrent:         base64.StdEncoding.EncodeToString(torrentBytes),
@@ -241,6 +254,7 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 		SubLangs:        subLangs,
 		FansubLangs:     "",
 		Description:     description,
+		MediaInfo:       miText,
 		SecondaryGroups: []any{},
 		IgnoreWarnings:  true,
 	}

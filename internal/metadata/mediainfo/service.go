@@ -5,15 +5,15 @@ package mediainfo
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	gomediainfo "github.com/autobrr/go-mediainfo"
-
 	internalerrors "github.com/autobrr/upbrr/internal/errors"
+	"github.com/autobrr/upbrr/internal/filesystem"
 	"github.com/autobrr/upbrr/internal/paths"
 	"github.com/autobrr/upbrr/pkg/api"
 )
@@ -61,7 +61,10 @@ func NewService(logger api.Logger, analyzer Analyzer) *Service {
 		logger = api.NopLogger{}
 	}
 	if analyzer == nil {
-		analyzer = moduleAnalyzer{}
+		// No analyzer configured — use an empty-bin CLIAnalyzer so that any
+		// call to Analyze fails with a clear error rather than silently
+		// returning incomplete data from the pure-Go module.
+		analyzer = NewCLIAnalyzer("")
 	}
 	return &Service{logger: logger, analyzer: analyzer}
 }
@@ -91,7 +94,13 @@ func (s *Service) Export(ctx context.Context, req Request) (Result, error) {
 		s.logger.Debugf("mediainfo: checking cache at %s (text=%v json=%v)", tmpDir, fileExists(textPath), fileExists(jsonPath))
 	}
 	if fileExists(textPath) && fileExists(jsonPath) {
-		if isMediaInfoCacheStale(target.AnalyzePath, textPath, jsonPath) {
+		if !isMediaInfoCacheValid(textPath, jsonPath) {
+			if s.logger != nil {
+				s.logger.Infof("mediainfo: cached mediainfo artifacts empty or invalid, regenerating: %s", target.AnalyzePath)
+			}
+			_ = os.Remove(textPath)
+			_ = os.Remove(jsonPath)
+		} else if isMediaInfoCacheStale(target.AnalyzePath, textPath, jsonPath) {
 			if s.logger != nil {
 				s.logger.Infof("mediainfo: source media modified after cached mediainfo was created, regenerating: %s", target.AnalyzePath)
 			}
@@ -161,29 +170,15 @@ func analyzeVOB(ctx context.Context, analyzer Analyzer, vobPath string) (string,
 	return cleanMediaInfoText(text, trimmed), string(jsonPayload), nil
 }
 
-type moduleAnalyzer struct{}
-
-func (moduleAnalyzer) Analyze(_ context.Context, target string) (string, []byte, error) {
-	report, err := gomediainfo.AnalyzeFile(target)
-	if err != nil {
-		return "", nil, fmt.Errorf("mediainfo: analyze file: %w", err)
-	}
-	reports := []gomediainfo.Report{report}
-	text, err := gomediainfo.Render(reports, gomediainfo.OutputText)
-	if err != nil {
-		return "", nil, fmt.Errorf("mediainfo: render text: %w", err)
-	}
-	json, err := gomediainfo.Render(reports, gomediainfo.OutputJSON)
-	if err != nil {
-		return "", nil, fmt.Errorf("mediainfo: render json: %w", err)
-	}
-	return text, []byte(json), nil
-}
 
 func cleanMediaInfoText(text, target string) string {
 	base := filepath.Base(target)
+	rawTarget := strings.TrimPrefix(target, `\\?\`)
 	cleaned := strings.ReplaceAll(text, target, base)
 	cleaned = strings.ReplaceAll(cleaned, filepath.ToSlash(target), base)
+	cleaned = strings.ReplaceAll(cleaned, rawTarget, base)
+	cleaned = strings.ReplaceAll(cleaned, filepath.ToSlash(rawTarget), base)
+	cleaned = strings.ReplaceAll(cleaned, `\\?\`, "")
 	lines := strings.Split(cleaned, "\n")
 	filtered := make([]string, 0, len(lines))
 	for _, line := range lines {
@@ -203,13 +198,21 @@ func selectTarget(ctx context.Context, req Request) (targetSelection, error) {
 	if strings.EqualFold(req.DiscType, "DVD") {
 		return selectDVDTarget(ctx, req.SourcePath)
 	}
-	if strings.TrimSpace(req.VideoPath) != "" {
-		return targetSelection{AnalyzePath: req.VideoPath}, nil
+	if video := strings.TrimSpace(req.VideoPath); video != "" {
+		if info, err := os.Stat(video); err == nil && !info.IsDir() {
+			return targetSelection{AnalyzePath: video}, nil
+		}
 	}
-	if strings.TrimSpace(req.SourcePath) == "" {
+	source := strings.TrimSpace(req.SourcePath)
+	if source == "" {
 		return targetSelection{}, internalerrors.ErrInvalidInput
 	}
-	return targetSelection{AnalyzePath: req.SourcePath}, nil
+	if info, err := os.Stat(source); err == nil && info.IsDir() {
+		if video, _, err := filesystem.CollectVideoFiles(ctx, source, false); err == nil && video != "" {
+			return targetSelection{AnalyzePath: video}, nil
+		}
+	}
+	return targetSelection{AnalyzePath: source}, nil
 }
 
 func selectDVDTarget(ctx context.Context, source string) (targetSelection, error) {
@@ -412,3 +415,20 @@ func isMediaInfoCacheStale(targetPath string, textPath string, jsonPath string) 
 	}
 	return targetInfo.ModTime().After(textInfo.ModTime()) || targetInfo.ModTime().After(jsonInfo.ModTime())
 }
+
+func isMediaInfoCacheValid(textPath string, jsonPath string) bool {
+	textInfo, err := os.Stat(textPath)
+	if err != nil || textInfo.Size() < 50 {
+		return false
+	}
+	payload, err := os.ReadFile(jsonPath)
+	if err != nil || len(payload) < 50 {
+		return false
+	}
+	var doc conformanceDoc
+	if err := json.Unmarshal(payload, &doc); err != nil || len(doc.Media.Track) == 0 {
+		return false
+	}
+	return true
+}
+

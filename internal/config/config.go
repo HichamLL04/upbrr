@@ -53,7 +53,9 @@ type MainSettingsConfig struct {
 	SceneDetection      bool   `yaml:"scene_detection"`
 	// MediaInfoPath is the path to the MediaInfo binary. When empty, the binary
 	// is auto-detected from PATH (mediainfo on Linux, MediaInfo.exe on Windows).
-	// Falls back to the built-in Go module analyzer when not found.
+	// If the binary is not found, uploads requiring mediainfo analysis will fail
+	// with a clear error. Set this to the absolute path to MediaInfo if it is
+	// not in PATH.
 	MediaInfoPath string `yaml:"mediainfo_path"`
 }
 

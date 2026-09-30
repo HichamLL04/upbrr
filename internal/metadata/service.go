@@ -206,8 +206,8 @@ func NewService(repo db.MetadataRepository, opts ...Option) *Service {
 			service.logger.Infof("mediainfo: using CLI binary path=%s", bin)
 			service.mi = mediainfo.NewService(service.logger, mediainfo.NewCLIAnalyzer(bin))
 		} else {
-			service.logger.Debugf("mediainfo: CLI binary not found, falling back to module analyzer (Encoded_Library_Settings will be missing for encodes)")
-			service.mi = mediainfo.NewService(service.logger, nil)
+			service.logger.Warnf("mediainfo: CLI binary not found — set mediainfo_path in config.yaml or install MediaInfo and ensure it is in PATH; uploads requiring mediainfo validation will fail")
+			service.mi = mediainfo.NewService(service.logger, mediainfo.NewCLIAnalyzer(""))
 		}
 	}
 	if service.tagsPath == "" {

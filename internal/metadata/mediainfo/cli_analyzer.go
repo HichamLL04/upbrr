@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025-2026, Audionut and the autobrr contributors.
+// Copyright (c) 2025-2026, Audionut and the autobrr contributors.
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 package mediainfo
@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -27,6 +28,9 @@ func NewCLIAnalyzer(bin string) *CLIAnalyzer {
 
 // Analyze runs the MediaInfo CLI against target and returns text + JSON output.
 func (a *CLIAnalyzer) Analyze(ctx context.Context, target string) (string, []byte, error) {
+	if strings.TrimSpace(a.bin) == "" {
+		return "", nil, fmt.Errorf("mediainfo: no CLI binary configured — set mediainfo_path in config.yaml or ensure the mediainfo binary is in PATH")
+	}
 	text, err := runMediaInfoCLI(ctx, a.bin, target, "TEXT")
 	if err != nil {
 		return "", nil, fmt.Errorf("mediainfo: cli text: %w", err)
@@ -38,8 +42,19 @@ func (a *CLIAnalyzer) Analyze(ctx context.Context, target string) (string, []byt
 	return text, []byte(jsonStr), nil
 }
 
+func toCLIPath(target string) string {
+	if runtime.GOOS == "windows" {
+		cleaned := filepath.Clean(target)
+		if len(cleaned) >= 240 && filepath.IsAbs(cleaned) && !strings.HasPrefix(cleaned, `\\?\`) {
+			return `\\?\` + cleaned
+		}
+		return cleaned
+	}
+	return target
+}
+
 func runMediaInfoCLI(ctx context.Context, bin, target, outputFmt string) (string, error) {
-	cmd := exec.CommandContext(ctx, bin, "--Output="+outputFmt, target)
+	cmd := exec.CommandContext(ctx, bin, "--Output="+outputFmt, toCLIPath(target))
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

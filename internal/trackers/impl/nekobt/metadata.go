@@ -4,6 +4,9 @@
 package nekobt
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/autobrr/upbrr/pkg/api"
@@ -89,9 +92,9 @@ func normalizeNekoBTLanguage(code string) string {
 		return "ja"
 	case "eng", "english":
 		return "en"
-	case "spa-419", "es-419", "latin":
+	case "spa-419", "es-419", "latin", "latino", "latam":
 		return "es-419"
-	case "spa", "es", "spanish", "castilian", "castellano":
+	case "spa", "es", "spanish", "castilian", "castellano", "es-es":
 		return "es-es"
 	case "por", "pt", "portuguese":
 		return "pt-pt"
@@ -125,3 +128,120 @@ func resolveNekoBTLanguages(languages []string) string {
 	}
 	return strings.Join(res, ",")
 }
+
+type nekoBTTrackDoc struct {
+	Media struct {
+		Track []map[string]any `json:"track"`
+	} `json:"media"`
+}
+
+func parseNekoBTMediaInfoTracks(jsonPath string) []map[string]any {
+	if strings.TrimSpace(jsonPath) == "" {
+		return nil
+	}
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return nil
+	}
+	var doc nekoBTTrackDoc
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil
+	}
+	return doc.Media.Track
+}
+
+func nekoBTTrackString(track map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if val, ok := track[key]; ok && val != nil {
+			s := strings.TrimSpace(fmt.Sprintf("%v", val))
+			if s != "" && s != "<nil>" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func detectNekoBTSpanishDialect(lang, title string) (isLatino bool, isCastilian bool) {
+	lowerLang := strings.ToLower(strings.TrimSpace(lang))
+	lowerTitle := strings.ToLower(strings.TrimSpace(title))
+
+	if lowerLang == "es-419" || lowerLang == "spa-419" || strings.Contains(lowerLang, "latin") || strings.Contains(lowerLang, "latino") {
+		isLatino = true
+	}
+	if strings.Contains(lowerTitle, "latino") || strings.Contains(lowerTitle, "latam") || strings.Contains(lowerTitle, "latin") || strings.Contains(lowerTitle, "es-419") {
+		isLatino = true
+	}
+
+	if lowerLang == "es-es" || strings.Contains(lowerLang, "castellano") || strings.Contains(lowerLang, "castilian") {
+		isCastilian = true
+	}
+	if strings.Contains(lowerTitle, "castellano") || strings.Contains(lowerTitle, "castilian") || strings.Contains(lowerTitle, "españa") || strings.Contains(lowerTitle, "espana") || strings.Contains(lowerTitle, "es-es") {
+		isCastilian = true
+	}
+
+	return isLatino, isCastilian
+}
+
+func resolveNekoBTTrackLanguages(meta api.PreparedMetadata, trackType string, fallbackLangs []string) string {
+	tracks := parseNekoBTMediaInfoTracks(meta.MediaInfoJSONPath)
+	res := make([]string, 0)
+	seen := make(map[string]bool)
+
+	addLang := func(code string) {
+		norm := normalizeNekoBTLanguage(code)
+		if norm != "" && !seen[norm] {
+			seen[norm] = true
+			res = append(res, norm)
+		}
+	}
+
+	if len(tracks) > 0 {
+		for _, track := range tracks {
+			tType := strings.ToLower(strings.TrimSpace(nekoBTTrackString(track, "@type")))
+			if tType != trackType {
+				continue
+			}
+			title := nekoBTTrackString(track, "Title", "Title_String", "Title_String2", "Title_String3")
+			if trackType == "audio" && strings.Contains(strings.ToLower(title), "commentary") {
+				continue
+			}
+			lang := nekoBTTrackString(track, "Language", "Language_String", "Language_String2", "Language_String3")
+			lowerLang := strings.ToLower(lang)
+
+			// Check if Spanish track with specific dialect
+			if strings.HasPrefix(lowerLang, "es") || strings.HasPrefix(lowerLang, "spa") || strings.Contains(lowerLang, "spanish") || strings.Contains(strings.ToLower(title), "español") || strings.Contains(strings.ToLower(title), "spanish") {
+				isLat, isCast := detectNekoBTSpanishDialect(lang, title)
+				if isLat {
+					addLang("es-419")
+				}
+				if isCast {
+					addLang("es-es")
+				}
+				if !isLat && !isCast {
+					rawName := strings.ToLower(meta.ReleaseName + " " + meta.Audio)
+					if strings.Contains(rawName, "latino") || strings.Contains(rawName, "latam") || strings.Contains(rawName, "es-419") {
+						addLang("es-419")
+					} else {
+						addLang("es-es")
+					}
+				}
+				continue
+			}
+
+			if lang != "" {
+				addLang(lang)
+			}
+		}
+	}
+
+	// Fall back to fallbackLangs if no languages detected from tracks
+	if len(res) == 0 {
+		for _, l := range fallbackLangs {
+			addLang(l)
+		}
+	}
+
+	return strings.Join(res, ",")
+}
+
