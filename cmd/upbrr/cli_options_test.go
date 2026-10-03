@@ -632,6 +632,25 @@ func TestBuildCLIRequestKeepFolder(t *testing.T) {
 	}
 }
 
+func TestBuildCLIRequestIA(t *testing.T) {
+	for _, flag := range []string{"--ia", "-ia", "--ai", "-ai"} {
+		opts, visited, paths, err := parseCLIOptions([]string{flag, "movie.mkv"})
+		if err != nil {
+			t.Fatalf("%s parse: %v", flag, err)
+		}
+		if !visited["ia"] {
+			t.Fatalf("%s: expected ia visited, got %#v", flag, visited)
+		}
+		req, err := buildCLIRequest(opts, visited, paths, 4)
+		if err != nil {
+			t.Fatalf("%s build request: %v", flag, err)
+		}
+		if req.MetadataOverrides.IA == nil || !*req.MetadataOverrides.IA {
+			t.Fatalf("%s: expected IA to propagate as true, got %#v", flag, req.MetadataOverrides.IA)
+		}
+	}
+}
+
 func TestBuildCLIRequestExecutionOptions(t *testing.T) {
 	opts, visited, paths, err := parseCLIOptions([]string{
 		"--queue", "daily",

@@ -318,6 +318,8 @@ func parseCLIOptions(args []string) (cliOptions, map[string]bool, []string, erro
 	fs.BoolVar(&opts.Draft, "draft", false, "Send uploads to drafts where supported")
 	fs.BoolVar(&opts.ModQ, "mq", false, "Opt into mod queue where supported")
 	fs.BoolVar(&opts.ModQ, "modq", false, "Opt into mod queue where supported")
+	fs.BoolVar(&opts.IA, "ia", false, "Mark release as containing artificial intelligence (IA)")
+	fs.BoolVar(&opts.IA, "ai", false, "Mark release as containing artificial intelligence (IA)")
 	fs.StringVar(&opts.Channel, "ch", "", "Override SPD channel")
 	fs.StringVar(&opts.Channel, "channel", "", "Override SPD channel")
 	fs.BoolVar(&opts.NoCache, "no-cache", false, "Ignore cached metadata/artifacts and force torrent regeneration")
@@ -575,6 +577,7 @@ func cliFlagAliases() map[string]string {
 		"nc":                   "no-cache",
 		"nl":                   "nekobt-level",
 		"autonomous":           "auto",
+		"ai":                   "ia",
 	}
 }
 
@@ -689,7 +692,7 @@ func cliHelpSections(name string) []helpSection {
 		{title: "Metadata IDs", names: []string{"tmdb", "imdb", "mal", "tvdb", "tvmaze"}},
 		{title: "Tracker Overrides", names: []string{
 			"skip-dupe-check", "skip-dupe-asking", "double-dupe-check", "foreign", "opera", "asian", "disctype",
-			"commentary", "personalrelease", "stream", "webdv", "not-anime", "anon", "draft", "modq", "channel",
+			"commentary", "personalrelease", "stream", "webdv", "not-anime", "ia", "anon", "draft", "modq", "channel",
 		}},
 		{title: "Screenshots and Images", names: []string{
 			"screens", "manual_frames", "comparison", "comparison_index", "menu-images", "imghost", "skip-imagehost-upload",
