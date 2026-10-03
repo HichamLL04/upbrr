@@ -61,10 +61,7 @@ func NewService(logger api.Logger, analyzer Analyzer) *Service {
 		logger = api.NopLogger{}
 	}
 	if analyzer == nil {
-		// No analyzer configured — use an empty-bin CLIAnalyzer so that any
-		// call to Analyze fails with a clear error rather than silently
-		// returning incomplete data from the pure-Go module.
-		analyzer = NewCLIAnalyzer("")
+		analyzer = NewModuleAnalyzer()
 	}
 	return &Service{logger: logger, analyzer: analyzer}
 }
@@ -418,11 +415,11 @@ func isMediaInfoCacheStale(targetPath string, textPath string, jsonPath string) 
 
 func isMediaInfoCacheValid(textPath string, jsonPath string) bool {
 	textInfo, err := os.Stat(textPath)
-	if err != nil || textInfo.Size() < 50 {
+	if err != nil || textInfo.Size() == 0 {
 		return false
 	}
 	payload, err := os.ReadFile(jsonPath)
-	if err != nil || len(payload) < 50 {
+	if err != nil || len(payload) == 0 {
 		return false
 	}
 	var doc conformanceDoc

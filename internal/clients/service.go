@@ -296,6 +296,9 @@ func (s *Service) injectQbit(ctx context.Context, name string, client config.Tor
 		if mapped {
 			options.SavePath = savePath
 			s.logger.Debugf("clients: qbit path mapping ready client=%s save_path=%s", name, savePath)
+		} else {
+			options.SavePath = filepath.Dir(meta.SourcePath)
+			s.logger.Debugf("clients: qbit fallback exact save_path=%s", options.SavePath)
 		}
 	}
 	if category := strings.TrimSpace(client.QbitCrossCategory); torrent.CrossSeed && category != "" {
@@ -303,12 +306,18 @@ func (s *Service) injectQbit(ctx context.Context, name string, client config.Tor
 	} else if category := strings.TrimSpace(client.QbitCategory()); category != "" {
 		options.Category = category
 	}
+	if strings.EqualFold(options.Category, "Subida") {
+		options.Category = ""
+	}
 	if tags := strings.TrimSpace(client.QbitCrossTag); torrent.CrossSeed && tags != "" {
 		options.Tags = tags
 	} else if tags := strings.TrimSpace(client.QbitTags()); tags != "" {
 		options.Tags = tags
 	} else if client.UseTrackerAsTag {
 		options.Tags = strings.TrimSpace(torrent.Tracker)
+	}
+	if strings.EqualFold(options.Tags, "Subida") || options.Tags == "" {
+		options.Tags = "subida"
 	}
 	s.logger.Debugf("clients: qbit add options ready client=%s elapsed=%s", name, time.Since(optionsStart).Round(time.Millisecond))
 
@@ -325,9 +334,16 @@ func (s *Service) injectQbit(ctx context.Context, name string, client config.Tor
 		s.logger.Debugf("clients: using qbit proxy for client %s", name)
 	}
 
+	preparedOpts := options.Prepare()
+	preparedOpts["autoTMM"] = "false"
+
 	if torrentPath := strings.TrimSpace(torrent.Path); torrentPath != "" {
 		s.logger.Debugf("clients: adding torrent file to qbit client %s for %s", name, meta.SourcePath)
-		if _, err := qbit.AddTorrentFromFileCtx(qbitCtx, torrentPath, options.Prepare()); err != nil {
+		if _, err := qbit.AddTorrentFromFileCtx(qbitCtx, torrentPath, preparedOpts); err != nil {
+			if isQbitConflictError(err) {
+				s.logger.Warnf("clients: torrent already exists in qbit client=%s tracker=%s (conflict detected), skipping add", name, logTracker(torrent.Tracker))
+				return nil
+			}
 			s.cleanupFailedLinkStaging(name, torrent.Tracker, staging)
 			return fmt.Errorf("clients: %s qbit add torrent file: %w", name, err)
 		}
@@ -338,7 +354,11 @@ func (s *Service) injectQbit(ctx context.Context, name string, client config.Tor
 
 	if torrentURL := strings.TrimSpace(torrent.URL); torrentURL != "" {
 		s.logger.Debugf("clients: adding tracker torrent URL to qbit client %s for %s", name, meta.SourcePath)
-		if _, err := qbit.AddTorrentFromUrlCtx(qbitCtx, torrentURL, options.Prepare()); err != nil {
+		if _, err := qbit.AddTorrentFromUrlCtx(qbitCtx, torrentURL, preparedOpts); err != nil {
+			if isQbitConflictError(err) {
+				s.logger.Warnf("clients: torrent already exists in qbit client=%s tracker=%s (conflict detected), skipping add", name, logTracker(torrent.Tracker))
+				return nil
+			}
 			s.cleanupFailedLinkStaging(name, torrent.Tracker, staging)
 			return fmt.Errorf("clients: %s qbit add torrent URL: %w", name, err)
 		}
@@ -637,4 +657,12 @@ func applyClientOverrides(client config.TorrentClientConfig, overrides api.Clien
 		}
 	}
 	return client
+}
+
+func isQbitConflictError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "conflicts detected") || strings.Contains(msg, "status code: 409") || strings.Contains(msg, "status code 409")
 }

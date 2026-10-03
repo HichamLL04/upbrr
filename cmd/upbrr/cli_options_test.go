@@ -1537,3 +1537,108 @@ func TestParseCLIOptionsServerPathFlags(t *testing.T) {
 		t.Fatalf("expected local path override, got %#v", req.ClientOverrides.LocalPath)
 	}
 }
+
+func TestParseCLIOptionsNoCache(t *testing.T) {
+	opts, visited, paths, err := parseCLIOptions([]string{"-nc", "movie.mkv"})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if !opts.NoCache {
+		t.Fatal("expected opts.NoCache to be true")
+	}
+	req, err := buildCLIRequest(opts, visited, paths, 4)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	if !req.Options.NoCache {
+		t.Fatal("expected req.Options.NoCache to be true")
+	}
+	if req.TorrentOverrides.Rehash == nil || !*req.TorrentOverrides.Rehash {
+		t.Fatalf("expected rehash to be true for -nc, got %#v", req.TorrentOverrides.Rehash)
+	}
+}
+
+func TestParseCLIOptionsNekoBTFlagsAndConf(t *testing.T) {
+	// 1. Direct flags
+	opts, visited, paths, err := parseCLIOptions([]string{
+		"-nl", "1",
+		"--nekobt-fansub",
+		"--nekobt-hardsub",
+		"--nekobt-group", "12345",
+		"--nekobt-secondary-groups", "67890,11121",
+		"--nekobt-fansub-langs", "es-419,en",
+		"movie.mkv",
+	})
+	if err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+	req, err := buildCLIRequest(opts, visited, paths, 4)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	neko := req.TrackerSiteOverrides.NekoBT
+	if neko.Level == nil || *neko.Level != 1 {
+		t.Errorf("expected level 1, got %#v", neko.Level)
+	}
+	if neko.Fansub == nil || !*neko.Fansub {
+		t.Errorf("expected fansub true, got %#v", neko.Fansub)
+	}
+	if neko.Hardsub == nil || !*neko.Hardsub {
+		t.Errorf("expected hardsub true, got %#v", neko.Hardsub)
+	}
+	if neko.PrimaryGroup == nil || *neko.PrimaryGroup != "12345" {
+		t.Errorf("expected primary group 12345, got %#v", neko.PrimaryGroup)
+	}
+	if len(neko.SecondaryGroups) != 2 || neko.SecondaryGroups[0] != "67890" || neko.SecondaryGroups[1] != "11121" {
+		t.Errorf("expected secondary groups [67890 11121], got %#v", neko.SecondaryGroups)
+	}
+	if neko.FansubLangs == nil || *neko.FansubLangs != "es-419,en" {
+		t.Errorf("expected fansub langs es-419,en, got %#v", neko.FansubLangs)
+	}
+
+	// 2. Inline JSON conf
+	optsJSON, visitedJSON, pathsJSON, err := parseCLIOptions([]string{
+		"--nekobt-conf", `{"level": 0, "official": true, "sub_langs": "en,ja"}`,
+		"movie.mkv",
+	})
+	if err != nil {
+		t.Fatalf("parse json conf: %v", err)
+	}
+	reqJSON, err := buildCLIRequest(optsJSON, visitedJSON, pathsJSON, 4)
+	if err != nil {
+		t.Fatalf("build json request: %v", err)
+	}
+	nekoJSON := reqJSON.TrackerSiteOverrides.NekoBT
+	if nekoJSON.Level == nil || *nekoJSON.Level != 0 {
+		t.Errorf("expected level 0, got %#v", nekoJSON.Level)
+	}
+	if nekoJSON.Official == nil || !*nekoJSON.Official {
+		t.Errorf("expected official true, got %#v", nekoJSON.Official)
+	}
+	if nekoJSON.SubLangs == nil || *nekoJSON.SubLangs != "en,ja" {
+		t.Errorf("expected sub_langs en,ja, got %#v", nekoJSON.SubLangs)
+	}
+
+	// 3. Comma-separated KV conf
+	optsKV, visitedKV, pathsKV, err := parseCLIOptions([]string{
+		"--nekobt-conf", "level=2,mtl=true,hidden=true",
+		"movie.mkv",
+	})
+	if err != nil {
+		t.Fatalf("parse kv conf: %v", err)
+	}
+	reqKV, err := buildCLIRequest(optsKV, visitedKV, pathsKV, 4)
+	if err != nil {
+		t.Fatalf("build kv request: %v", err)
+	}
+	nekoKV := reqKV.TrackerSiteOverrides.NekoBT
+	if nekoKV.Level == nil || *nekoKV.Level != 2 {
+		t.Errorf("expected level 2, got %#v", nekoKV.Level)
+	}
+	if nekoKV.MTL == nil || !*nekoKV.MTL {
+		t.Errorf("expected mtl true, got %#v", nekoKV.MTL)
+	}
+	if nekoKV.Hidden == nil || !*nekoKV.Hidden {
+		t.Errorf("expected hidden true, got %#v", nekoKV.Hidden)
+	}
+}

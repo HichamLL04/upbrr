@@ -378,5 +378,133 @@ func TestNekoBTSpanishDialectResolution(t *testing.T) {
 	}
 }
 
+func TestNekoBTOfficialVsFansubAndOverrides(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	torrentFile := filepath.Join(tmpDir, "test.torrent")
+	if err := os.WriteFile(torrentFile, []byte("d8:announce41:https://tracker.nekobt.to/api/tracker...e"), 0644); err != nil {
+		t.Fatalf("failed to write test torrent: %v", err)
+	}
+
+	// 1. Official release via Service (CR)
+	reqOfficial := trackers.UploadRequest{
+		Tracker: "NEKOBT",
+		Meta: api.PreparedMetadata{
+			ReleaseName:       "Example.Show.S01.1080p.CR.WEB-DL.AAC2.0.H.264-GRP",
+			ReleaseNameClean:  "Example Show S01 1080p CR WEB-DL AAC2.0 H.264-GRP",
+			TorrentPath:       torrentFile,
+			Tag:               "GRP",
+			Type:              "WEBDL",
+			Service:           "CR",
+			ServiceLongName:   "Crunchyroll",
+			AudioLanguages:    []string{"ja"},
+			SubtitleLanguages: []string{"en", "es-419"},
+			SeasonInt:         1,
+		},
+		TrackerConfig: config.TrackerConfig{
+			APIKey: "test-token",
+		},
+	}
+
+	payloadOfficial, err := preparePayload(context.Background(), reqOfficial)
+	if err != nil {
+		t.Fatalf("preparePayload official failed: %v", err)
+	}
+	if payloadOfficial.Level != 0 {
+		t.Errorf("expected level 0 for official, got %d", payloadOfficial.Level)
+	}
+	if payloadOfficial.SubLangs != "en,es-419" {
+		t.Errorf("expected sub_langs en,es-419, got %q", payloadOfficial.SubLangs)
+	}
+	if payloadOfficial.FansubLangs != "" {
+		t.Errorf("expected empty fansub_langs for official, got %q", payloadOfficial.FansubLangs)
+	}
+
+	// 2. Fansub release (no official service)
+	reqFansub := trackers.UploadRequest{
+		Tracker: "NEKOBT",
+		Meta: api.PreparedMetadata{
+			ReleaseName:       "The.World.Is.Dancing.S01.1080p.WEB-DL.AAC2.0.H.264-kotopi",
+			ReleaseNameClean:  "The World Is Dancing S01 1080p WEB-DL AAC2.0 H.264-kotopi",
+			TorrentPath:       torrentFile,
+			Tag:               "kotopi",
+			Type:              "WEBDL",
+			AudioLanguages:    []string{"ja"},
+			SubtitleLanguages: []string{"en"},
+			SeasonInt:         1,
+		},
+		TrackerConfig: config.TrackerConfig{
+			APIKey: "test-token",
+		},
+	}
+
+	payloadFansub, err := preparePayload(context.Background(), reqFansub)
+	if err != nil {
+		t.Fatalf("preparePayload fansub failed: %v", err)
+	}
+	if payloadFansub.Level != 1 {
+		t.Errorf("expected level 1 for fansub, got %d", payloadFansub.Level)
+	}
+	if payloadFansub.FansubLangs != "en" {
+		t.Errorf("expected fansub_langs en, got %q", payloadFansub.FansubLangs)
+	}
+	if payloadFansub.SubLangs != "" {
+		t.Errorf("expected empty sub_langs for fansub, got %q", payloadFansub.SubLangs)
+	}
+
+	// 3. Overrides via TrackerSiteOverrides.NekoBT
+	customLevel := 2
+	customHardsub := true
+	customGroup := "999"
+	customSubLangs := "ja"
+	reqOverrides := trackers.UploadRequest{
+		Tracker: "NEKOBT",
+		Meta: api.PreparedMetadata{
+			ReleaseName:       "Example.Show.S01.1080p.CR.WEB-DL.AAC2.0.H.264-GRP",
+			ReleaseNameClean:  "Example Show S01 1080p CR WEB-DL AAC2.0 H.264-GRP",
+			TorrentPath:       torrentFile,
+			Tag:               "GRP",
+			Type:              "WEBDL",
+			Service:           "CR",
+			AudioLanguages:    []string{"ja"},
+			SubtitleLanguages: []string{"en"},
+			SeasonInt:         1,
+			TrackerSiteOverrides: api.TrackerSiteOverrides{
+				NekoBT: api.NekoBTOverrides{
+					Level:           &customLevel,
+					Hardsub:         &customHardsub,
+					PrimaryGroup:    &customGroup,
+					SecondaryGroups: []string{"888"},
+					SubLangs:        &customSubLangs,
+				},
+			},
+		},
+		TrackerConfig: config.TrackerConfig{
+			APIKey: "test-token",
+		},
+	}
+
+	payloadOverrides, err := preparePayload(context.Background(), reqOverrides)
+	if err != nil {
+		t.Fatalf("preparePayload overrides failed: %v", err)
+	}
+	if payloadOverrides.Level != 2 {
+		t.Errorf("expected overridden level 2, got %d", payloadOverrides.Level)
+	}
+	if !payloadOverrides.Hardsub {
+		t.Errorf("expected overridden hardsub true, got %v", payloadOverrides.Hardsub)
+	}
+	if payloadOverrides.PrimaryGroup == nil || payloadOverrides.PrimaryGroup.ID != "999" {
+		t.Errorf("expected overridden primary group 999, got %+v", payloadOverrides.PrimaryGroup)
+	}
+	if len(payloadOverrides.SecondaryGroups) != 1 {
+		t.Errorf("expected 1 secondary group, got %d", len(payloadOverrides.SecondaryGroups))
+	}
+	if payloadOverrides.SubLangs != "ja" {
+		t.Errorf("expected overridden sub_langs ja, got %q", payloadOverrides.SubLangs)
+	}
+}
+
 
 

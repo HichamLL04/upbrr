@@ -241,6 +241,13 @@ func (c *Core) RunUploadPrepared(ctx context.Context, req api.Request) (result a
 		return api.Result{}, err
 	}
 
+	if req.Options.NoCache {
+		if req.TorrentOverrides.Rehash == nil {
+			rehash := true
+			req.TorrentOverrides.Rehash = &rehash
+		}
+	}
+
 	var totalUploaded int
 	for _, path := range uniquePaths {
 		select {
@@ -1797,6 +1804,12 @@ func (c *Core) FetchMetadataPreview(ctx context.Context, req api.Request) (previ
 
 	if err := c.resetContentForExternalOverrides(ctx, uniquePaths[0], singleReq.ExternalIDOverrides); err != nil {
 		return api.MetadataPreview{}, err
+	}
+
+	if singleReq.Options.NoCache {
+		if err := c.DeleteHistoryRelease(ctx, uniquePaths[0]); err != nil && !errors.Is(err, internalerrors.ErrNotFound) {
+			c.logger.Debugf("core: no-cache cleanup failed for %s: %v", uniquePaths[0], err)
+		}
 	}
 	progressPath := uniquePaths[0]
 

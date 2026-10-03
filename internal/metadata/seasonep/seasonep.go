@@ -110,6 +110,7 @@ func Extract(path string, meta api.PreparedMetadata) Result {
 		result.TVPack = true
 		result.Episode = 0
 		result.MultiEpisode = nil
+		result.AbsoluteEpisode = 0
 	}
 
 	return result

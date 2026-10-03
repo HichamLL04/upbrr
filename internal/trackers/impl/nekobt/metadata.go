@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/autobrr/upbrr/internal/config"
 	"github.com/autobrr/upbrr/pkg/api"
 )
 
@@ -77,12 +78,63 @@ func resolveNekoBTVideoCodec(meta api.PreparedMetadata) int {
 	return 0 // Other
 }
 
-func resolveNekoBTLevel(meta api.PreparedMetadata) int {
+func isOfficialNekoBTRelease(meta api.PreparedMetadata, cfg config.TrackerConfig) bool {
+	if meta.TrackerSiteOverrides.NekoBT.Official != nil && *meta.TrackerSiteOverrides.NekoBT.Official {
+		return true
+	}
+	if meta.TrackerSiteOverrides.NekoBT.Fansub != nil && *meta.TrackerSiteOverrides.NekoBT.Fansub {
+		return false
+	}
+
+	if cfg.NekoBTOfficial != nil && *cfg.NekoBTOfficial {
+		return true
+	}
+	if cfg.NekoBTFansub != nil && *cfg.NekoBTFansub {
+		return false
+	}
+
+	service := strings.ToUpper(strings.TrimSpace(meta.Service))
+	longName := strings.ToUpper(strings.TrimSpace(meta.ServiceLongName))
+	serviceText := service + " " + longName
+
+	officialServices := []string{
+		"AMAZ", "AMZN", "AMAZON", "NF", "NETFLIX", "CR", "CRUNCHYROLL",
+		"DSNP", "DISNEY", "HIDI", "HIDIVE", "HLU", "HULU",
+		"ADN", "B-GLOBAL", "BILI", "BILIBILI", "ATVP", "APPLE",
+		"MAX", "HBO", "HBOM", "STAN", "IPLA", "VIU", "IQ", "IQIYI", "WETV",
+	}
+	for _, s := range officialServices {
+		if service == s || strings.Contains(serviceText, s) {
+			return true
+		}
+	}
+
+	releaseNameUpper := strings.ToUpper(meta.ReleaseNameClean + " " + meta.ReleaseName + " " + meta.SourcePath)
+	for _, s := range []string{
+		".AMZN.", ".AMAZON.", ".NF.", ".NETFLIX.", ".CR.", ".CRUNCHYROLL.",
+		".DSNP.", ".DISNEY.", ".HIDI.", ".HIDIVE.", ".HULU.", ".ADN.",
+		".B-GLOBAL.", ".BILI.", ".ATVP.", ".APPLE.",
+	} {
+		if strings.Contains(releaseNameUpper, s) {
+			return true
+		}
+	}
+
+	if strings.EqualFold(meta.DiscType, "BDMV") || strings.EqualFold(meta.DiscType, "DVD") {
+		return true
+	}
+
+	return false
+}
+
+func resolveNekoBTLevel(meta api.PreparedMetadata, isOfficial bool) int {
 	if len(meta.SubtitleLanguages) == 0 {
 		return -1 // No subs
 	}
-	// Default level for official sources (BD, WEB) is Level 0
-	return 0
+	if isOfficial {
+		return 0 // Default level for official sources
+	}
+	return 1 // Fansub release (level 0 not allowed for fansubs)
 }
 
 func normalizeNekoBTLanguage(code string) string {

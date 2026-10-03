@@ -740,6 +740,16 @@ func promptTrackerDupeReview(reader *bufio.Reader, summary api.DupeCheckSummary,
 	ignoreDupesFor := make([]string, 0)
 	ruleOverrides := make([]string, 0)
 	if isUnattendedNoConfirm(req) {
+		if req.Options.Auto {
+			for _, tracker := range trackers {
+				name := strings.ToUpper(strings.TrimSpace(tracker))
+				if name != "" {
+					approved = append(approved, name)
+					ignoreDupesFor = append(ignoreDupesFor, name)
+				}
+			}
+			return approved, ignoreDupesFor, ruleOverrides, nil
+		}
 		approved = append(approved, printUnattendedDupeReviewSummary(resultByTracker, trackers)...)
 		return approved, ignoreDupesFor, ruleOverrides, nil
 	}
@@ -1004,6 +1014,9 @@ func runCLIScreenshotHandling(ctx context.Context, coreSvc api.Core, req api.Req
 		return fmt.Errorf("upbrr: screenshot plan: %w", err)
 	}
 	if plan.RequiresManualFrames {
+		if req.Options.Auto {
+			return nil
+		}
 		return errors.New("upbrr: screenshot handling requires manual frames; use --manual_frames")
 	}
 
@@ -1024,9 +1037,15 @@ func runCLIScreenshotHandling(ctx context.Context, coreSvc api.Core, req api.Req
 
 	result, err := coreSvc.GenerateScreenshots(ctx, req, plan.SuggestedSelections, api.ScreenshotPurposeFinal)
 	if err != nil {
+		if req.Options.Auto {
+			return nil
+		}
 		return fmt.Errorf("upbrr: generate screenshots: %w", err)
 	}
 	if len(result.Errors) > 0 {
+		if req.Options.Auto {
+			return nil
+		}
 		return fmt.Errorf("upbrr: generate screenshots: %s", formatScreenshotErrors(result.Errors))
 	}
 

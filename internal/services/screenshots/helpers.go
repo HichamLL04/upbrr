@@ -48,6 +48,11 @@ func resolveVideoInfo(ctx context.Context, meta api.PreparedMetadata, tmpRoot st
 	if basePath == "" {
 		return info, errors.New("screenshots: source path required")
 	}
+	if st, err := os.Stat(basePath); err == nil && st.IsDir() {
+		if len(meta.FileList) > 0 {
+			basePath = meta.FileList[0]
+		}
+	}
 
 	doc, _ := loadMediaInfoDoc(meta.MediaInfoJSONPath)
 	info.DurationSeconds = mediaInfoDurationSeconds(doc)
@@ -106,6 +111,11 @@ func resolveVideoSource(ctx context.Context, meta api.PreparedMetadata, tmpRoot 
 	}
 	if basePath == "" {
 		return "", errors.New("screenshots: source path required")
+	}
+	if st, err := os.Stat(basePath); err == nil && st.IsDir() {
+		if len(meta.FileList) > 0 {
+			basePath = meta.FileList[0]
+		}
 	}
 
 	if strings.EqualFold(strings.TrimSpace(meta.DiscType), "BDMV") {

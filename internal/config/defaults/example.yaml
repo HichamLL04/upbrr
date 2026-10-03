@@ -372,6 +372,14 @@ trackers:
     anon: false
     group_id: ""
     groups: {}
+    nekobt_level: 1
+    nekobt_official: false
+    nekobt_fansub: false
+    nekobt_hardsub: false
+    nekobt_mtl: false
+    nekobt_otl: false
+    nekobt_hidden: false
+    nekobt_secondary_groups: []
   NOBS:
     link_dir_name: ""
     api_key: ""

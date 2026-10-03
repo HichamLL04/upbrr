@@ -86,6 +86,8 @@ type UploadOptions struct {
 	OnlyID          bool
 	KeepFolder      bool
 	KeepImages      bool
+	NoCache         bool
+	Auto            bool
 	InteractionMode InteractionMode
 }
 
@@ -99,7 +101,8 @@ type TrackerConfigOverrides struct {
 
 // TrackerSiteOverrides groups tracker-specific site override payloads.
 type TrackerSiteOverrides struct {
-	TIK TIKOverrides
+	TIK    TIKOverrides
+	NekoBT NekoBTOverrides
 }
 
 // TIKOverrides carries TIK-specific upload flags selected outside static config.
@@ -108,6 +111,24 @@ type TIKOverrides struct {
 	Opera    *bool
 	Asian    *bool
 	DiscType *string
+}
+
+// NekoBTOverrides carries NekoBT-specific upload flags selected outside static config.
+type NekoBTOverrides struct {
+	Level           *int
+	Official        *bool
+	Fansub          *bool
+	MTL             *bool
+	OTL             *bool
+	Hardsub         *bool
+	Hidden          *bool
+	VideoType       *int
+	VideoCodec      *int
+	PrimaryGroup    *string
+	SecondaryGroups []string
+	AudioLangs      *string
+	SubLangs        *string
+	FansubLangs     *string
 }
 
 // Result summarizes a completed core upload run.

@@ -206,8 +206,8 @@ func NewService(repo db.MetadataRepository, opts ...Option) *Service {
 			service.logger.Infof("mediainfo: using CLI binary path=%s", bin)
 			service.mi = mediainfo.NewService(service.logger, mediainfo.NewCLIAnalyzer(bin))
 		} else {
-			service.logger.Warnf("mediainfo: CLI binary not found — set mediainfo_path in config.yaml or install MediaInfo and ensure it is in PATH; uploads requiring mediainfo validation will fail")
-			service.mi = mediainfo.NewService(service.logger, mediainfo.NewCLIAnalyzer(""))
+			service.logger.Warnf("mediainfo: CLI binary not found — set mediainfo_path in config.yaml or install MediaInfo and ensure it is in PATH; falling back to built-in parser")
+			service.mi = mediainfo.NewService(service.logger, mediainfo.NewModuleAnalyzer())
 		}
 	}
 	if service.tagsPath == "" {
@@ -1187,6 +1187,11 @@ func applySeasonEpisodeMetadata(meta *api.PreparedMetadata, result seasonep.Resu
 		meta.DailyEpisodeDate = result.DailyDate
 	}
 	meta.TVPack = result.TVPack
+	if result.TVPack {
+		meta.EpisodeInt = 0
+		meta.EpisodeStr = ""
+		meta.Release.Episode = 0
+	}
 
 	if logger != nil && (meta.SeasonStr != "" || meta.EpisodeStr != "" || meta.DailyEpisodeDate != "" || meta.TVPack) {
 		logger.Debugf("metadata: parsed season/episode season=%q episode=%q daily_date=%q tv_pack=%t", meta.SeasonStr, meta.EpisodeStr, meta.DailyEpisodeDate, meta.TVPack)

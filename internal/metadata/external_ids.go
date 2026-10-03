@@ -2023,7 +2023,7 @@ func (s *Service) applyTVEpisodeMetadata(
 		}
 	}
 
-	if meta.Anime && ids.TVDBID != 0 {
+	if !meta.TVPack && meta.Anime && ids.TVDBID != 0 {
 		extracted := seasonep.Extract(meta.SourcePath, meta)
 		absoluteEpisode := extracted.AbsoluteEpisode
 		if absoluteEpisode > 0 {
@@ -2048,6 +2048,9 @@ func (s *Service) applyTVEpisodeMetadata(
 		}
 	}
 
+	if meta.TVPack {
+		episode = 0
+	}
 	meta.SeasonInt = season
 	meta.EpisodeInt = episode
 	meta.SeasonStr = seasonep.FormatSeason(season)
@@ -2249,6 +2252,9 @@ func (s *Service) applyTVEpisodeMetadata(
 		}
 	}
 
+	if meta.TVPack {
+		episode = 0
+	}
 	meta.SeasonInt = season
 	meta.EpisodeInt = episode
 	meta.SeasonStr = seasonep.FormatSeason(season)

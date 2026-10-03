@@ -287,7 +287,7 @@ func run() error {
 		}
 	}
 
-	if opts.DeleteTmp {
+	if opts.DeleteTmp || opts.NoCache {
 		paths, err = normalizeCLIPaths(setupCtx, paths)
 		if err != nil {
 			return exitError(1, err)

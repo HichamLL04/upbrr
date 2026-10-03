@@ -23,7 +23,7 @@ func maybeEditCLIDescriptions(ctx context.Context, coreSvc api.Core, reader *buf
 	if req.Options.OnlyID || opts.OnlyID {
 		return req, review, nil
 	}
-	if opts.Unattended && !opts.UnattendedConfirm {
+	if (opts.Unattended || opts.Auto) && !opts.UnattendedConfirm {
 		return req, review, nil
 	}
 

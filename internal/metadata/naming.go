@@ -283,8 +283,10 @@ func releaseNameRequestFromMeta(meta api.PreparedMetadata, logger api.Logger) ap
 	dailyDate := strings.TrimSpace(meta.DailyEpisodeDate)
 	manualDate := strings.EqualFold(category, "TV") && dailyDate != "" && !meta.TVPack
 	episodeTitle := strings.TrimSpace(meta.EpisodeTitle)
+	episodeStr := strings.TrimSpace(meta.EpisodeStr)
 	if meta.TVPack {
 		episodeTitle = ""
+		episodeStr = ""
 	} else if titleIdentityKey(episodeTitle) != "" {
 		episodeTitleKey := titleIdentityKey(episodeTitle)
 		if episodeTitleKey == titleIdentityKey(title) || episodeTitleKey == titleIdentityKey(altTitle) {
@@ -302,7 +304,7 @@ func releaseNameRequestFromMeta(meta api.PreparedMetadata, logger api.Logger) ap
 		Audio:         meta.Audio,
 		Service:       meta.Service,
 		Season:        strings.TrimSpace(meta.SeasonStr),
-		Episode:       strings.TrimSpace(meta.EpisodeStr),
+		Episode:       episodeStr,
 		Part:          "",
 		Repack:        meta.Repack,
 		ThreeD:        meta.Is3D,

@@ -43,6 +43,20 @@ func TestExtract(t *testing.T) {
 		t.Fatalf("write second multi episode: %v", err)
 	}
 
+	animePackRoot := t.TempDir()
+	animePackDir := filepath.Join(animePackRoot, "The.World.Is.Dancing.S01.1080p.WEB-DL.AAC2.0.H.264-kotopi")
+	if err := os.MkdirAll(animePackDir, 0o755); err != nil {
+		t.Fatalf("mkdir anime pack dir: %v", err)
+	}
+	animeFirst := filepath.Join(animePackDir, "[kotopi] The World Is Dancing - 01 (S01E01) [1080p].mkv")
+	animeSecond := filepath.Join(animePackDir, "[kotopi] The World Is Dancing - 02 (S01E02) [1080p].mkv")
+	if err := os.WriteFile(animeFirst, []byte("1"), 0o600); err != nil {
+		t.Fatalf("write anime first: %v", err)
+	}
+	if err := os.WriteFile(animeSecond, []byte("2"), 0o600); err != nil {
+		t.Fatalf("write anime second: %v", err)
+	}
+
 	tests := []struct {
 		name    string
 		path    string
@@ -80,6 +94,15 @@ func TestExtract(t *testing.T) {
 				FileList:  []string{multiFirst, multiSecond},
 			},
 			want: Result{Season: 1, TVPack: true},
+		},
+		{
+			name: "season pack with anime episode numbers clears absolute episode",
+			path: animePackDir,
+			meta: api.PreparedMetadata{
+				VideoPath: animeFirst,
+				FileList:  []string{animeFirst, animeSecond},
+			},
+			want: Result{Season: 1, TVPack: true, Episode: 0, AbsoluteEpisode: 0},
 		},
 		{
 			name: "daily show",

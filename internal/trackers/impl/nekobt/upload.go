@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -181,8 +182,19 @@ func buildTitle(meta api.PreparedMetadata, cfg config.TrackerConfig) string {
 		sb.WriteString(fmt.Sprintf(" (%d)", year))
 	}
 	// Append season/episode identifier for TV content
-	seasonEp := strings.TrimSpace(meta.SeasonStr + meta.EpisodeStr)
-	if seasonEp != "" {
+	seasonStr := meta.SeasonStr
+	if seasonStr == "" && meta.Release.Season > 0 {
+		seasonStr = fmt.Sprintf("S%02d", meta.Release.Season)
+	}
+	episodeStr := meta.EpisodeStr
+	if episodeStr == "" && meta.Release.Episode > 0 && !meta.TVPack {
+		episodeStr = fmt.Sprintf("E%02d", meta.Release.Episode)
+	}
+	if meta.TVPack {
+		episodeStr = ""
+	}
+	seasonEp := strings.TrimSpace(seasonStr + episodeStr)
+	if seasonEp != "" && !strings.Contains(title, seasonEp) {
 		sb.WriteString(" " + seasonEp)
 	}
 	if len(parts) > 0 {
@@ -212,7 +224,7 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 	}
 
 	isMovie := meta.SeasonInt == 0 && meta.EpisodeInt == 0 && !meta.HasTVSeasonEpisodeSignal()
-	isBatch := meta.SeasonInt > 0 && meta.EpisodeInt == 0
+	isBatch := (meta.SeasonInt > 0 || meta.Release.Season > 0) && (meta.EpisodeInt == 0 && meta.Release.Episode == 0 || meta.TVPack)
 
 	assets, err := trackers.ResolveDescriptionAssets(ctx, req.Tracker, req.Meta, req.Repo, req.Logger)
 	if err != nil {
@@ -226,13 +238,97 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 	}
 
 	title := buildTitle(meta, req.TrackerConfig)
+	isOfficial := isOfficialNekoBTRelease(meta, req.TrackerConfig)
+	overrides := meta.TrackerSiteOverrides.NekoBT
+
 	audioLangs := resolveNekoBTTrackLanguages(meta, "audio", meta.AudioLanguages)
-	subLangs := resolveNekoBTTrackLanguages(meta, "text", meta.SubtitleLanguages)
-	logger.Debugf("trackers: nekobt payload title=%q tag=%q audio_langs=%q sub_langs=%q", title, meta.Tag, audioLangs, subLangs)
+	allSubLangs := resolveNekoBTTrackLanguages(meta, "text", meta.SubtitleLanguages)
+
+	var subLangs, fansubLangs string
+	if isOfficial {
+		subLangs = allSubLangs
+		fansubLangs = ""
+	} else {
+		subLangs = ""
+		fansubLangs = allSubLangs
+	}
+	if overrides.SubLangs != nil && strings.TrimSpace(*overrides.SubLangs) != "" {
+		subLangs = strings.TrimSpace(*overrides.SubLangs)
+	}
+	if overrides.FansubLangs != nil && strings.TrimSpace(*overrides.FansubLangs) != "" {
+		fansubLangs = strings.TrimSpace(*overrides.FansubLangs)
+	}
+
+	videoType := resolveNekoBTVideoType(meta)
+	if overrides.VideoType != nil {
+		videoType = *overrides.VideoType
+	}
+
+	videoCodec := resolveNekoBTVideoCodec(meta)
+	if overrides.VideoCodec != nil {
+		videoCodec = *overrides.VideoCodec
+	}
+
+	level := resolveNekoBTLevel(meta, isOfficial)
+	if overrides.Level != nil {
+		level = *overrides.Level
+	} else if req.TrackerConfig.NekoBTLevel != nil {
+		level = *req.TrackerConfig.NekoBTLevel
+	}
+
+	hardsub := false
+	if overrides.Hardsub != nil {
+		hardsub = *overrides.Hardsub
+	} else if req.TrackerConfig.NekoBTHardsub != nil {
+		hardsub = *req.TrackerConfig.NekoBTHardsub
+	}
+
+	mtl := false
+	if overrides.MTL != nil {
+		mtl = *overrides.MTL
+	} else if req.TrackerConfig.NekoBTMTL != nil {
+		mtl = *req.TrackerConfig.NekoBTMTL
+	}
+
+	otl := false
+	if overrides.OTL != nil {
+		otl = *overrides.OTL
+	} else if req.TrackerConfig.NekoBTOTL != nil {
+		otl = *req.TrackerConfig.NekoBTOTL
+	}
+
+	hidden := false
+	if overrides.Hidden != nil {
+		hidden = *overrides.Hidden
+	} else if req.TrackerConfig.NekoBTHidden != nil {
+		hidden = *req.TrackerConfig.NekoBTHidden
+	}
+
+	secGroups := make([]any, 0)
+	rawSecGroups := overrides.SecondaryGroups
+	if len(rawSecGroups) == 0 {
+		rawSecGroups = req.TrackerConfig.NekoBTSecondaryGroups
+	}
+	for _, sg := range rawSecGroups {
+		trimmedSG := strings.TrimSpace(sg)
+		if trimmedSG != "" {
+			secGroups = append(secGroups, map[string]any{
+				"id":   trimmedSG,
+				"role": nil,
+			})
+		}
+	}
+
+	logger.Debugf("trackers: nekobt payload title=%q tag=%q official=%t level=%d audio_langs=%q sub_langs=%q fansub_langs=%q", title, meta.Tag, isOfficial, level, audioLangs, subLangs, fansubLangs)
 
 	miText := strings.TrimSpace(commonhttp.ReadOptionalFile(metautil.FirstNonEmptyTrimmed(meta.MediaInfoTextPath, meta.DVDVOBMediaInfoText)))
 	if len(miText) > 65536 {
 		miText = miText[:65536]
+	}
+	if len(miText) > 0 {
+		logger.Debugf("trackers: nekobt mediainfo loaded length=%d bytes", len(miText))
+	} else {
+		logger.Warnf("trackers: nekobt mediainfo empty or not found (text_path=%q)", meta.MediaInfoTextPath)
 	}
 
 	payload := uploadPayload{
@@ -240,32 +336,39 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 		Title:           title,
 		Movie:           isMovie,
 		Category:        1,
-		VideoType:       resolveNekoBTVideoType(meta),
-		VideoCodec:      resolveNekoBTVideoCodec(meta),
-		Level:           resolveNekoBTLevel(meta),
-		MTL:             meta.HasIA,
-		OTL:             false,
-		Hardsub:         false,
+		VideoType:       videoType,
+		VideoCodec:      videoCodec,
+		Level:           level,
+		MTL:             mtl,
+		OTL:             otl,
+		Hardsub:         hardsub,
 		Batch:           isBatch,
-		Hidden:          false,
+		Hidden:          hidden,
 		Complete:        false,
 		Anonymous:       req.TrackerConfig.Anon,
 		AudioLangs:      audioLangs,
 		SubLangs:        subLangs,
-		FansubLangs:     "",
+		FansubLangs:     fansubLangs,
 		Description:     description,
 		MediaInfo:       miText,
-		SecondaryGroups: []any{},
+		SecondaryGroups: secGroups,
 		IgnoreWarnings:  true,
 	}
 
 	releaseTag := strings.TrimPrefix(strings.TrimSpace(meta.Tag), "-")
-	if groupID := resolveNekoBTGroupID(releaseTag, req.TrackerConfig); groupID != "" {
+	primaryGroupID := ""
+	if overrides.PrimaryGroup != nil {
+		primaryGroupID = strings.TrimSpace(*overrides.PrimaryGroup)
+	}
+	if primaryGroupID == "" {
+		primaryGroupID = resolveNekoBTGroupID(releaseTag, req.TrackerConfig)
+	}
+	if primaryGroupID != "" {
 		payload.PrimaryGroup = &primaryGroupPayload{
-			ID:      groupID,
+			ID:      primaryGroupID,
 			Members: []any{},
 		}
-		logger.Debugf("trackers: nekobt attached primary_group ID=%s for release group %q", groupID, releaseTag)
+		logger.Debugf("trackers: nekobt attached primary_group ID=%s for release group %q", primaryGroupID, releaseTag)
 	} else if req.TrackerConfig.GroupID != "" {
 		logger.Infof("trackers: nekobt omitting primary_group for release group %q (no matching group ID configured)", releaseTag)
 	}
@@ -357,6 +460,22 @@ func upload(ctx context.Context, req trackers.UploadRequest) (api.UploadSummary,
 	downloadURL := fmt.Sprintf("%s/api/v1/torrents/%s/download", baseURL, torrentID)
 	torrentURL := fmt.Sprintf("%s/torrents/%s", baseURL, torrentID)
 
+	artifactPath := ""
+	if torrentID != "" {
+		if artPath, err := trackers.ResolveTrackerTorrentArtifactPath(req.Meta, req.AppConfig.MainSettings.DBPath, "NEKOBT"); err == nil && artPath != "" {
+			if dlErr := downloadNekoBTTorrent(ctx, downloadURL, apiKey, artPath); dlErr != nil {
+				if req.Logger != nil {
+					req.Logger.Warnf("trackers: nekobt download torrent failed: %v", dlErr)
+				}
+			} else {
+				artifactPath = artPath
+			}
+		}
+	}
+	if artifactPath == "" {
+		artifactPath = req.Meta.TorrentPath
+	}
+
 	return api.UploadSummary{
 		Uploaded: 1,
 		UploadedTorrents: []api.UploadedTorrent{{
@@ -364,8 +483,39 @@ func upload(ctx context.Context, req trackers.UploadRequest) (api.UploadSummary,
 			TorrentID:   torrentID,
 			DownloadURL: downloadURL,
 			TorrentURL:  torrentURL,
+			TorrentPath: artifactPath,
 		}},
 	}, nil
+}
+
+func downloadNekoBTTorrent(ctx context.Context, urlValue, apiKey, output string) error {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, urlValue, nil)
+	if err != nil {
+		return fmt.Errorf("trackers: nekobt build torrent download request: %w", err)
+	}
+	if strings.TrimSpace(apiKey) != "" {
+		httpReq.Header.Set("Cookie", "ssid="+strings.TrimSpace(apiKey))
+	}
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("trackers: nekobt torrent download request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("trackers: nekobt torrent download HTTP %d: %s", resp.StatusCode, string(body))
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("trackers: nekobt read torrent response: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(output), 0o700); err != nil {
+		return fmt.Errorf("trackers: nekobt create torrent output dir: %w", err)
+	}
+	if err := os.WriteFile(output, body, 0o600); err != nil {
+		return fmt.Errorf("trackers: nekobt write torrent output: %w", err)
+	}
+	return nil
 }
 
 func buildUploadDryRun(ctx context.Context, req trackers.UploadRequest) (api.TrackerDryRunEntry, error) {

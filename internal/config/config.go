@@ -274,6 +274,14 @@ type TrackerConfig struct {
 	Filebrowser         string         `yaml:"filebrowser" json:"Filebrowser"`
 	Internal            bool           `yaml:"internal" json:"Internal"`
 	InternalGroups      []string       `yaml:"internal_groups" json:"InternalGroups"`
+	NekoBTLevel           *int           `yaml:"nekobt_level" json:"NekoBTLevel"`
+	NekoBTOfficial        *bool          `yaml:"nekobt_official" json:"NekoBTOfficial"`
+	NekoBTFansub          *bool          `yaml:"nekobt_fansub" json:"NekoBTFansub"`
+	NekoBTHardsub         *bool          `yaml:"nekobt_hardsub" json:"NekoBTHardsub"`
+	NekoBTMTL             *bool          `yaml:"nekobt_mtl" json:"NekoBTMTL"`
+	NekoBTOTL             *bool          `yaml:"nekobt_otl" json:"NekoBTOTL"`
+	NekoBTHidden          *bool          `yaml:"nekobt_hidden" json:"NekoBTHidden"`
+	NekoBTSecondaryGroups []string       `yaml:"nekobt_secondary_groups" json:"NekoBTSecondaryGroups"`
 	Unknown             map[string]any `yaml:"-" json:"-"`
 }
 
