@@ -312,9 +312,15 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 	for _, sg := range rawSecGroups {
 		trimmedSG := strings.TrimSpace(sg)
 		if trimmedSG != "" {
+			parts := strings.SplitN(trimmedSG, ":", 2)
+			groupID := strings.TrimSpace(parts[0])
+			var role any = "Encode"
+			if len(parts) > 1 && strings.TrimSpace(parts[1]) != "" {
+				role = strings.TrimSpace(parts[1])
+			}
 			secGroups = append(secGroups, map[string]any{
-				"id":   trimmedSG,
-				"role": nil,
+				"id":   groupID,
+				"role": role,
 			})
 		}
 	}

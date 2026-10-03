@@ -253,8 +253,11 @@ func TestNekoBTBuildDescription(t *testing.T) {
 	if strings.Count(desc2, "<div align=\"center\">") != 1 {
 		t.Errorf("expected exactly 1 center div, got %d", strings.Count(desc2, "<div align=\"center\">"))
 	}
-	if strings.Count(desc2, "<div align=\"right\">") != 1 {
-		t.Errorf("expected exactly 1 signature div, got %d", strings.Count(desc2, "<div align=\"right\">"))
+	if strings.Count(desc, "> [!NOTE]") != 1 {
+		t.Errorf("expected exactly 1 [!NOTE] block in desc, got %d", strings.Count(desc, "> [!NOTE]"))
+	}
+	if strings.Count(desc2, "> [!NOTE]") != 1 {
+		t.Errorf("expected exactly 1 [!NOTE] block in desc2, got %d", strings.Count(desc2, "> [!NOTE]"))
 	}
 }
 
@@ -500,6 +503,11 @@ func TestNekoBTOfficialVsFansubAndOverrides(t *testing.T) {
 	}
 	if len(payloadOverrides.SecondaryGroups) != 1 {
 		t.Errorf("expected 1 secondary group, got %d", len(payloadOverrides.SecondaryGroups))
+	} else {
+		sgMap, ok := payloadOverrides.SecondaryGroups[0].(map[string]any)
+		if !ok || sgMap["id"] != "888" || sgMap["role"] != "Encode" {
+			t.Errorf("expected secondary group 888 with role Encode, got %+v", payloadOverrides.SecondaryGroups[0])
+		}
 	}
 	if payloadOverrides.SubLangs != "ja" {
 		t.Errorf("expected overridden sub_langs ja, got %q", payloadOverrides.SubLangs)

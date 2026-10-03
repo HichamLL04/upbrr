@@ -29,9 +29,11 @@ func buildDescription(req trackers.UploadRequest, assets trackers.DescriptionAss
 		}
 	}
 
-	// Append Discord notice
-	discordNotice := "> [!NOTE]\n> Si encuentras algún error o inconsistencia, puedes reportarlo en nuestro Discord: [discord.gg/KWQp6sNy8](https://discord.gg/KWQp6sNy8) para corregirlo en el repack del batch de la temporada completa."
-	sections = append(sections, discordNotice)
+	// Append Discord notice if not already present
+	if !strings.Contains(baseDesc, "discord.gg/KWQp6sNy8") {
+		discordNotice := "> [!NOTE]\n> Si encuentras algún error o inconsistencia, puedes reportarlo en nuestro Discord: [discord.gg/KWQp6sNy8](https://discord.gg/KWQp6sNy8) para corregirlo en el repack del batch de la temporada completa."
+		sections = append(sections, discordNotice)
+	}
 
 	// Append signature
 	if !strings.Contains(baseDesc, "https://github.com/autobrr/upbrr") && !strings.Contains(baseDesc, "Uploaded by upbrr") {
