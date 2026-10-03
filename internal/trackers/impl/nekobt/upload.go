@@ -259,6 +259,26 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 		fansubLangs = strings.TrimSpace(*overrides.FansubLangs)
 	}
 
+	// For fansub releases, any subtitle language present in allSubLangs that is NOT
+	// in fansubLangs should be populated into official subLangs if subLangs was not explicitly overridden.
+	if !isOfficial && fansubLangs != "" && subLangs == "" {
+		fansubSet := make(map[string]bool)
+		for _, fl := range strings.Split(fansubLangs, ",") {
+			normFL := normalizeNekoBTLanguage(fl)
+			if normFL != "" {
+				fansubSet[normFL] = true
+			}
+		}
+		var officialSubs []string
+		for _, sl := range strings.Split(allSubLangs, ",") {
+			normSL := normalizeNekoBTLanguage(sl)
+			if normSL != "" && !fansubSet[normSL] {
+				officialSubs = append(officialSubs, normSL)
+			}
+		}
+		subLangs = strings.Join(officialSubs, ",")
+	}
+
 	videoType := resolveNekoBTVideoType(meta)
 	if overrides.VideoType != nil {
 		videoType = *overrides.VideoType

@@ -514,5 +514,51 @@ func TestNekoBTOfficialVsFansubAndOverrides(t *testing.T) {
 	}
 }
 
+func TestNekoBTFansubWithOfficialSubs(t *testing.T) {
+	torrentFile := filepath.Join(t.TempDir(), "test.torrent")
+	if err := os.WriteFile(torrentFile, []byte("d8:announce38:https://tracker.nekobt.to/announce4:infod6:lengthi12345e4:name8:test.mkvee"), 0o600); err != nil {
+		t.Fatalf("write temp torrent: %v", err)
+	}
+
+	fansubLang := "es-es"
+	isFansub := true
+	req := trackers.UploadRequest{
+		Tracker: "NEKOBT",
+		Meta: api.PreparedMetadata{
+			ReleaseName:       "Example.Show.S02E01.1080p.ADN.WEB-DL.AV1.Opus.2.0-GapMoe",
+			ReleaseNameClean:  "Example Show S02E01 1080p ADN WEB-DL AV1 Opus 2.0-GapMoe",
+			TorrentPath:       torrentFile,
+			Tag:               "GapMoe",
+			Type:              "WEBDL",
+			Service:           "ADN",
+			AudioLanguages:    []string{"ja"},
+			SubtitleLanguages: []string{"ja", "en", "fr", "de", "es"},
+			SeasonInt:         2,
+			TrackerSiteOverrides: api.TrackerSiteOverrides{
+				NekoBT: api.NekoBTOverrides{
+					Fansub:      &isFansub,
+					FansubLangs: &fansubLang,
+				},
+			},
+		},
+		TrackerConfig: config.TrackerConfig{
+			APIKey: "test-token",
+		},
+	}
+
+	payload, err := preparePayload(context.Background(), req)
+	if err != nil {
+		t.Fatalf("preparePayload failed: %v", err)
+	}
+	if payload.FansubLangs != "es-es" {
+		t.Errorf("expected fansub_langs 'es-es', got %q", payload.FansubLangs)
+	}
+	// The other 4 languages should be in sub_langs
+	expectedSubLangs := "ja,en,fr-fr,de"
+	if payload.SubLangs != expectedSubLangs {
+		t.Errorf("expected sub_langs %q, got %q", expectedSubLangs, payload.SubLangs)
+	}
+}
+
 
 
