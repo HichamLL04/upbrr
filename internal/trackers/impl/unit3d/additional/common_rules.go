@@ -173,6 +173,13 @@ func checkTTRSubtitleOnly(ctx context.Context, meta api.PreparedMetadata, _ api.
 	langs := append([]string{}, meta.AudioLanguages...)
 	langs = append(langs, meta.SubtitleLanguages...)
 	langs = append(langs, meta.Release.Language...)
+
+	pathLower := strings.ToLower(meta.SourcePath)
+	tagLower := strings.ToLower(meta.Tag)
+	if strings.Contains(pathLower, "amf") || strings.Contains(pathLower, "snf") || strings.Contains(tagLower, "amf") || strings.Contains(tagLower, "snf") || strings.Contains(pathLower, "castellano") || strings.Contains(pathLower, "latino") || strings.Contains(pathLower, "spanish") || strings.Contains(pathLower, "esp") {
+		langs = append(langs, "spanish")
+	}
+
 	if !containsAny(languageutil.ExpandLanguageVariants(langs), []string{"spanish", "es", "spa", "castellano", "castilian", "latino", "latin"}) {
 		return Fail("TTR requires at least one Spanish audio or subtitle track.")
 	}

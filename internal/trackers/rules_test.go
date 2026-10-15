@@ -108,6 +108,20 @@ func TestEvaluateRulesTTRSpanish(t *testing.T) {
 			t.Errorf("expected no failures for subLang %q on TTR, got %#v", subLang, failures)
 		}
 	}
+
+	// Test AMF-SnF fansub where MediaInfo didn't report language
+	metaFansub := api.PreparedMetadata{
+		SourcePath:             "/mnt/nvme/media/anime/animeMix/[AMF-SnF] Seitokai ni mo Ana wa Aru! - 01 [CC37490E].mkv",
+		AudioLanguages:         []string{"Japanese"},
+		SubtitleLanguages:      nil,
+		ValidMediaInfoSettings: true,
+		Container:              "mkv",
+		Release:                api.ReleaseInfo{Resolution: "1080p"},
+	}
+	failures := EvaluateRules(context.Background(), "TTR", metaFansub, nil)
+	if len(failures) != 0 {
+		t.Fatalf("expected no failures for AMF-SnF fansub on TTR, got %#v", failures)
+	}
 }
 
 func TestEvaluateRulesLanguageRuleMissingData(t *testing.T) {

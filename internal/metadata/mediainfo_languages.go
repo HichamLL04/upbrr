@@ -54,12 +54,30 @@ func extractMediaInfoLanguages(doc mediaInfoDoc) ([]string, []string) {
 				continue
 			}
 			language := normalizeLanguage(trackString(track, "Language", "Language_String", "Language_String2", "Language_String3"))
-			if language != "" {
+			if language == "" || strings.EqualFold(language, "und") || strings.EqualFold(language, "undefined") {
+				title := strings.ToLower(trackString(track, "Title", "Title_String", "Title_String2", "Title_String3", "Name"))
+				if strings.Contains(title, "español") || strings.Contains(title, "spanish") || strings.Contains(title, "castellano") || strings.Contains(title, "latino") || strings.Contains(title, "castilian") {
+					language = "Spanish"
+				} else if strings.Contains(title, "japanese") || strings.Contains(title, "jap") || strings.Contains(title, "[ja]") {
+					language = "Japanese"
+				} else if strings.Contains(title, "english") || strings.Contains(title, "eng") || strings.Contains(title, "[en]") {
+					language = "English"
+				}
+			}
+			if language != "" && !strings.EqualFold(language, "und") && !strings.EqualFold(language, "undefined") {
 				audio = append(audio, language)
 			}
 		case "text":
 			language := normalizeLanguage(trackString(track, "Language", "Language_String", "Language_String2", "Language_String3"))
-			if language != "" {
+			if language == "" || strings.EqualFold(language, "und") || strings.EqualFold(language, "undefined") {
+				title := strings.ToLower(trackString(track, "Title", "Title_String", "Title_String2", "Title_String3", "Name"))
+				if strings.Contains(title, "español") || strings.Contains(title, "spanish") || strings.Contains(title, "castellano") || strings.Contains(title, "latino") || strings.Contains(title, "castilian") || strings.Contains(title, "[es]") || strings.Contains(title, "(es)") {
+					language = "Spanish"
+				} else if strings.Contains(title, "english") || strings.Contains(title, "eng") || strings.Contains(title, "[en]") {
+					language = "English"
+				}
+			}
+			if language != "" && !strings.EqualFold(language, "und") && !strings.EqualFold(language, "undefined") {
 				subs = append(subs, language)
 			}
 		}

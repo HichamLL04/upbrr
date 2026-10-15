@@ -558,6 +558,15 @@ func evaluateLanguageRule(meta api.PreparedMetadata, rule *additional.LanguageRu
 		return true, ""
 	}
 
+	// Heuristic: if rule requires Spanish and release comes from known Spanish fansub (e.g. AMF-SnF) or filename indicates Spanish
+	if containsAny(required, []string{"spanish", "es", "spa"}) {
+		pathLower := strings.ToLower(meta.SourcePath)
+		tagLower := strings.ToLower(meta.Tag)
+		if strings.Contains(pathLower, "amf") || strings.Contains(pathLower, "snf") || strings.Contains(tagLower, "amf") || strings.Contains(tagLower, "snf") || strings.Contains(pathLower, "castellano") || strings.Contains(pathLower, "latino") || strings.Contains(pathLower, "spanish") || strings.Contains(pathLower, "esp") {
+			subLanguages = append(subLanguages, "spanish", "es", "spa")
+		}
+	}
+
 	checkAudio := rule.RequireAudio || rule.RequireBoth
 	checkSubs := rule.RequireSubs || rule.RequireBoth
 	if (checkAudio || checkSubs) && len(audioLanguages) == 0 && len(subLanguages) == 0 {
