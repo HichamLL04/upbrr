@@ -839,6 +839,41 @@ func (s *Service) ResolveExternalIDs(ctx context.Context, meta api.PreparedMetad
 		}
 	}
 
+	isTVSeries := meta.SeasonInt > 1 || meta.Release.Season > 1 || (strings.EqualFold(ids.Category, "TV") && (meta.SeasonInt > 0 || meta.Release.Season > 0))
+	if isTVSeries {
+		s01Year := 0
+		if metadata.TMDB != nil && metadata.TMDB.Year > 0 {
+			s01Year = metadata.TMDB.Year
+		} else if metadata.TVDB != nil && metadata.TVDB.Year > 0 {
+			s01Year = metadata.TVDB.Year
+		} else if metadata.IMDB != nil && metadata.IMDB.Year > 0 {
+			s01Year = metadata.IMDB.Year
+		} else if metadata.AniList != nil && metadata.AniList.Season1Year > 0 {
+			s01Year = metadata.AniList.Season1Year
+		}
+		if s01Year > 0 && (meta.Release.Year == 0 || meta.Release.Year > s01Year) {
+			meta.Release.Year = s01Year
+		}
+	}
+
+	if meta.Release.Year == 0 {
+		if metadata.TMDB != nil && metadata.TMDB.Year > 0 {
+			meta.Release.Year = metadata.TMDB.Year
+		} else if metadata.IMDB != nil && metadata.IMDB.Year > 0 {
+			meta.Release.Year = metadata.IMDB.Year
+		} else if metadata.TVDB != nil && metadata.TVDB.Year > 0 {
+			meta.Release.Year = metadata.TVDB.Year
+		} else if metadata.AniList != nil && metadata.AniList.Season1Year > 0 {
+			meta.Release.Year = metadata.AniList.Season1Year
+		} else if metadata.AniList != nil && parseYearFromDate(metadata.AniList.StartDate) > 0 {
+			meta.Release.Year = parseYearFromDate(metadata.AniList.StartDate)
+		} else if metadata.TVmaze != nil && parseYearFromDate(metadata.TVmaze.Premiered) > 0 {
+			meta.Release.Year = parseYearFromDate(metadata.TVmaze.Premiered)
+		} else if _, derivedYear := deriveSearchTitleYear(meta.SourcePath); derivedYear > 0 {
+			meta.Release.Year = derivedYear
+		}
+	}
+
 	if err := s.repo.SaveExternalIDs(ctx, ids); err != nil {
 		return api.PreparedMetadata{}, fmt.Errorf("metadata: save external ids: %w", err)
 	}
@@ -1477,6 +1512,7 @@ func mapAniListMetadata(result tmdb.AniListMetadataResult) *api.AniListMetadata 
 		EndDate:            result.EndDate,
 		Season:             result.Season,
 		SeasonYear:         result.SeasonYear,
+		Season1Year:        result.Season1Year,
 		Episodes:           result.Episodes,
 		Duration:           result.Duration,
 		CountryOfOrigin:    result.CountryOfOrigin,

@@ -15,7 +15,16 @@ func siteEMUWProfile() unit3DSiteProfile {
 	return unit3DSiteProfile{
 		resolveTypeID:       resolveUnit3DEMUWTypeID,
 		resolveResolutionID: resolveUnit3DEMUWResolutionID,
+		resolveCategoryID:   resolveUnit3DEMUWCategoryID,
 	}
+}
+
+func resolveUnit3DEMUWCategoryID(meta api.PreparedMetadata) string {
+	category := resolveUnit3DCategory(meta)
+	if category == "MOVIE" {
+		return "1"
+	}
+	return "2"
 }
 
 func resolveUnit3DEMUWTypeID(meta api.PreparedMetadata) string {
@@ -63,9 +72,10 @@ func BuildEMUWName(meta api.PreparedMetadata, customTag string) string {
 	}
 
 	title := resolveEMUWTitle(rawName, meta)
+	year := resolveReleaseYear(meta)
 	yearStr := ""
-	if meta.Release.Year > 0 {
-		yearStr = strconv.Itoa(meta.Release.Year)
+	if year > 0 {
+		yearStr = strconv.Itoa(year)
 	}
 
 	category := resolveUnit3DCategory(meta)
@@ -96,7 +106,9 @@ func BuildEMUWName(meta api.PreparedMetadata, customTag string) string {
 		if seToken != "" {
 			parts = append(parts, seToken)
 		}
-		if yearStr != "" {
+		isSingleEpisode := (meta.EpisodeInt > 0 || meta.EpisodeStr != "") && !meta.TVPack
+		rawHasYear := yearStr != "" && strings.Contains(rawName, yearStr)
+		if yearStr != "" && (!isSingleEpisode || rawHasYear) {
 			parts = append(parts, yearStr)
 		}
 	} else {
@@ -167,7 +179,110 @@ func BuildEMUWName(meta api.PreparedMetadata, customTag string) string {
 }
 
 func resolveEMUWTitle(rawName string, meta api.PreparedMetadata) string {
+	// 1. Check IMDb AKAs for Spain/Spanish match (Upload-Assistant priority)
+	if meta.ExternalMetadata.IMDB != nil {
+		for _, aka := range meta.ExternalMetadata.IMDB.Akas {
+			c := strings.ToUpper(strings.TrimSpace(aka.Country))
+			l := strings.ToUpper(strings.TrimSpace(aka.Language))
+			if (c == "SPAIN" || c == "ES") || (l == "SPANISH" || l == "SPAIN" || l == "ES") {
+				if t := strings.TrimSpace(aka.Title); t != "" && !isNonLatinText(t) {
+					return cleanLTTitlePunctuation(t)
+				}
+			}
+		}
+	}
+
+	// 2. Check AniList Spanish Synonyms
+	if meta.ExternalMetadata.AniList != nil {
+		for _, syn := range meta.ExternalMetadata.AniList.Synonyms {
+			t := strings.TrimSpace(syn)
+			if t != "" && isSpanishTitleCandidate(t) && !isNonLatinText(t) {
+				return cleanLTTitlePunctuation(t)
+			}
+		}
+	}
+
+	// 3. Check TVDB Spanish translations/aliases
+	if meta.ExternalMetadata.TVDB != nil {
+		for _, alias := range meta.ExternalMetadata.TVDB.Aliases {
+			t := strings.TrimSpace(alias)
+			if t != "" && isSpanishTitleCandidate(t) && !isNonLatinText(t) {
+				return cleanLTTitlePunctuation(t)
+			}
+		}
+	}
+
+	// 4. Check TMDB LocalizedTitles
+	if meta.ExternalMetadata.TMDB != nil {
+		tmdb := meta.ExternalMetadata.TMDB
+		englishTitle := strings.TrimSpace(tmdb.Title)
+		isSpanishOrig := isSpanishLanguageToken(strings.ToLower(strings.TrimSpace(tmdb.OriginalLanguage)))
+
+		checkCandidate := func(cand string) string {
+			c := strings.TrimSpace(cand)
+			if c == "" || isNonLatinText(c) {
+				return ""
+			}
+			// If not originally Spanish, reject if identical to the English title
+			if !isSpanishOrig && strings.EqualFold(c, englishTitle) {
+				return ""
+			}
+			return cleanLTTitlePunctuation(c)
+		}
+
+		if tmdb.LocalizedTitles != nil {
+			if t := checkCandidate(tmdb.LocalizedTitles["es-ES"]); t != "" {
+				return t
+			}
+			if t := checkCandidate(tmdb.LocalizedTitles["es"]); t != "" {
+				return t
+			}
+		}
+		if tmdb.Localized != nil {
+			if loc, ok := tmdb.Localized["es-ES"]; ok {
+				if t := checkCandidate(loc.Title); t != "" {
+					return t
+				}
+			}
+			if loc, ok := tmdb.Localized["es"]; ok {
+				if t := checkCandidate(loc.Title); t != "" {
+					return t
+				}
+			}
+		}
+		if isSpanishOrig {
+			if tmdb.OriginalTitle != "" && !isNonLatinText(tmdb.OriginalTitle) {
+				return cleanLTTitlePunctuation(tmdb.OriginalTitle)
+			}
+			if tmdb.Title != "" && !isNonLatinText(tmdb.Title) {
+				return cleanLTTitlePunctuation(tmdb.Title)
+			}
+			if tmdb.RetrievedAKA != "" && !isNonLatinText(tmdb.RetrievedAKA) {
+				return cleanLTTitlePunctuation(tmdb.RetrievedAKA)
+			}
+		}
+	}
 	return resolveLTTitle(meta)
+}
+
+func isSpanishTitleCandidate(t string) bool {
+	lower := " " + strings.ToLower(strings.TrimSpace(t)) + " "
+	indicators := []string{
+		" los ", " las ", " el ", " la ", " un ", " una ", " unos ", " unas ",
+		" del ", " de la ", " de los ", " de las ", " y ", " en ", " por ", " para ", " con ",
+		" boticaria", " diario", " diari", " muerte", " amor", " vida", " mundo", " guerra",
+	}
+	for _, ind := range indicators {
+		if strings.Contains(lower, ind) {
+			return true
+		}
+	}
+	for _, r := range t {
+		if r == 'á' || r == 'é' || r == 'í' || r == 'ó' || r == 'ú' || r == 'ñ' || r == 'Á' || r == 'É' || r == 'Í' || r == 'Ó' || r == 'Ú' || r == 'Ñ' || r == '¿' || r == '¡' {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveEMUWResolution(rawName string, meta api.PreparedMetadata) string {
@@ -316,7 +431,7 @@ func resolveEMUWAudioLangs(rawName string, meta api.PreparedMetadata) string {
 		} else if strings.Contains(normalized, "latin") || strings.Contains(normalized, "latino") {
 			code = "LAT"
 		} else if strings.Contains(normalized, "english") || strings.Contains(normalized, "eng") {
-			code = "ING"
+			code = "ENG"
 		} else if strings.Contains(normalized, "french") || strings.Contains(normalized, "fra") {
 			code = "FRA"
 		} else if strings.Contains(normalized, "german") || strings.Contains(normalized, "ale") || strings.Contains(normalized, "deu") {
@@ -376,7 +491,7 @@ func resolveEMUWAudioLangs(rawName string, meta api.PreparedMetadata) string {
 }
 
 func resolveEMUWAudioCodec(rawName string, meta api.PreparedMetadata) (acodec string, channels string) {
-	upper := strings.ToUpper(rawName)
+	upper := strings.ToUpper(rawName + " " + meta.Audio)
 
 	// Lossless codecs take priority over lossy.
 	if strings.Contains(upper, "FLAC") {
@@ -417,15 +532,25 @@ func resolveEMUWAudioCodec(rawName string, meta api.PreparedMetadata) (acodec st
 	}
 
 	chans := []string{"7.1", "6.1", "5.1", "5.0", "3.1", "3.0", "2.1", "2.0", "1.0"}
-	for _, c := range chans {
-		for _, field := range strings.Fields(upper) {
-			if field == c {
+	if meta.Channels != "" {
+		for _, c := range chans {
+			if strings.TrimSpace(meta.Channels) == c {
 				channels = c
 				break
 			}
 		}
-		if channels != "" {
-			break
+	}
+	if channels == "" {
+		for _, c := range chans {
+			for _, field := range strings.Fields(upper) {
+				if field == c {
+					channels = c
+					break
+				}
+			}
+			if channels != "" {
+				break
+			}
 		}
 	}
 

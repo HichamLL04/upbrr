@@ -282,6 +282,9 @@ func rewriteTorrentInfoSource(torrentMeta *metainfo.MetaInfo, source string, con
 		return fmt.Errorf("trackers: unmarshal %s info: %w", context, err)
 	}
 	info.Source = strings.TrimSpace(source)
+	if strings.EqualFold(info.Source, "NekoBT") {
+		info.Private = nil
+	}
 	infoBytes, err := bencode.Marshal(info)
 	if err != nil {
 		return fmt.Errorf("trackers: marshal %s info: %w", context, err)

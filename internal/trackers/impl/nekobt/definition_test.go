@@ -189,6 +189,23 @@ func TestNekoBTBuildTitleIncludesSeason(t *testing.T) {
 			},
 			contains: "",
 		},
+		{
+			name: "series S03 uses Season 1 premiere year (2023) instead of future year 2027",
+			meta: api.PreparedMetadata{
+				Release:    api.ReleaseInfo{Title: "The Apothecary Diaries", Year: 2027},
+				SeasonInt:  3,
+				SeasonStr:  "S03",
+				EpisodeInt: 2,
+				EpisodeStr: "E02",
+				ExternalMetadata: api.ExternalMetadata{
+					AniList: &api.AniListMetadata{
+						Season1Year: 2023,
+						StartDate:   "2027-04-01",
+					},
+				},
+			},
+			contains: "(2023) S03E02",
+		},
 	}
 
 	for _, tc := range cases {

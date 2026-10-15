@@ -532,6 +532,19 @@ func (s *Service) Prepare(ctx context.Context, req api.Request) (meta api.Prepar
 		}
 		if storedMeta, err := s.repo.GetExternalMetadata(ctx, primary); err == nil {
 			meta.ExternalMetadata = storedMeta
+			if meta.Release.Year == 0 {
+				if storedMeta.TMDB != nil && storedMeta.TMDB.Year > 0 {
+					meta.Release.Year = storedMeta.TMDB.Year
+				} else if storedMeta.IMDB != nil && storedMeta.IMDB.Year > 0 {
+					meta.Release.Year = storedMeta.IMDB.Year
+				} else if storedMeta.TVDB != nil && storedMeta.TVDB.Year > 0 {
+					meta.Release.Year = storedMeta.TVDB.Year
+				} else if storedMeta.AniList != nil && parseYearFromDate(storedMeta.AniList.StartDate) > 0 {
+					meta.Release.Year = parseYearFromDate(storedMeta.AniList.StartDate)
+				} else if storedMeta.TVmaze != nil && parseYearFromDate(storedMeta.TVmaze.Premiered) > 0 {
+					meta.Release.Year = parseYearFromDate(storedMeta.TVmaze.Premiered)
+				}
+			}
 		} else if !errors.Is(err, internalerrors.ErrNotFound) {
 			return api.PreparedMetadata{}, fmt.Errorf("metadata: external metadata lookup: %w", err)
 		}

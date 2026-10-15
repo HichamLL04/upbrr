@@ -24,6 +24,8 @@ var unit3DSiteProfiles = map[string]unit3DSiteProfile{
 	"BLU":    siteBLUProfile(),
 	"CBR":    siteCBRProfile(),
 	"EMUW":   siteEMUWProfile(),
+	"EMUZ":   siteEMUWProfile(),
+	"EMU":    siteEMUWProfile(),
 	"IHD":    siteIHDProfile(),
 	"ITT":    siteITTProfile(),
 	"LDU":    siteLDUProfile(),

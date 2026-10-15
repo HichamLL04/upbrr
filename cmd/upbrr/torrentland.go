@@ -158,8 +158,8 @@ func buildTorrentlandName(meta api.PreparedMetadata) string {
 		} else if episode > 0 {
 			parts = append(parts, fmt.Sprintf("E%02d", episode))
 		}
-	} else if meta.Release.Year > 0 {
-		parts = append(parts, fmt.Sprintf("(%d)", meta.Release.Year))
+	} else if y := resolveTorrentlandYear(meta); y > 0 {
+		parts = append(parts, fmt.Sprintf("(%d)", y))
 	}
 
 	// {(Comentario)}
@@ -484,4 +484,40 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return out.Sync()
+}
+
+func resolveTorrentlandYear(meta api.PreparedMetadata) int {
+	if meta.Release.Year > 0 {
+		return meta.Release.Year
+	}
+	if meta.ExternalMetadata.TMDB != nil && meta.ExternalMetadata.TMDB.Year > 0 {
+		return meta.ExternalMetadata.TMDB.Year
+	}
+	if meta.ExternalMetadata.IMDB != nil && meta.ExternalMetadata.IMDB.Year > 0 {
+		return meta.ExternalMetadata.IMDB.Year
+	}
+	if meta.ExternalMetadata.TVDB != nil && meta.ExternalMetadata.TVDB.Year > 0 {
+		return meta.ExternalMetadata.TVDB.Year
+	}
+	if meta.ExternalMetadata.AniList != nil {
+		if y := parseTorrentlandYearPrefix(meta.ExternalMetadata.AniList.StartDate); y > 0 {
+			return y
+		}
+	}
+	if meta.ExternalMetadata.TVmaze != nil {
+		if y := parseTorrentlandYearPrefix(meta.ExternalMetadata.TVmaze.Premiered); y > 0 {
+			return y
+		}
+	}
+	return 0
+}
+
+func parseTorrentlandYearPrefix(s string) int {
+	s = strings.TrimSpace(s)
+	if len(s) >= 4 {
+		if y, err := strconv.Atoi(s[:4]); err == nil && y >= 1900 && y <= 2100 {
+			return y
+		}
+	}
+	return 0
 }

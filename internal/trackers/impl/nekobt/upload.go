@@ -134,11 +134,35 @@ func buildTitle(meta api.PreparedMetadata, cfg config.TrackerConfig) string {
 	}
 
 	year := meta.Release.Year
+	isTV := meta.SeasonInt > 0 || meta.Release.Season > 0 || meta.HasTVSeasonEpisodeSignal()
+	if isTV && (meta.SeasonInt > 1 || meta.Release.Season > 1) {
+		s01Year := 0
+		if meta.ExternalMetadata.TMDB != nil && meta.ExternalMetadata.TMDB.Year > 0 {
+			s01Year = meta.ExternalMetadata.TMDB.Year
+		} else if meta.ExternalMetadata.TVDB != nil && meta.ExternalMetadata.TVDB.Year > 0 {
+			s01Year = meta.ExternalMetadata.TVDB.Year
+		} else if meta.ExternalMetadata.IMDB != nil && meta.ExternalMetadata.IMDB.Year > 0 {
+			s01Year = meta.ExternalMetadata.IMDB.Year
+		} else if meta.ExternalMetadata.AniList != nil && meta.ExternalMetadata.AniList.Season1Year > 0 {
+			s01Year = meta.ExternalMetadata.AniList.Season1Year
+		}
+		if s01Year > 0 {
+			year = s01Year
+		}
+	}
 	if year == 0 && meta.ExternalMetadata.TMDB != nil && meta.ExternalMetadata.TMDB.Year > 0 {
 		year = meta.ExternalMetadata.TMDB.Year
 	}
+	if year == 0 && meta.ExternalMetadata.TVDB != nil && meta.ExternalMetadata.TVDB.Year > 0 {
+		year = meta.ExternalMetadata.TVDB.Year
+	}
 	if year == 0 && meta.ExternalMetadata.IMDB != nil && meta.ExternalMetadata.IMDB.Year > 0 {
 		year = meta.ExternalMetadata.IMDB.Year
+	}
+	if year == 0 && meta.ExternalMetadata.AniList != nil {
+		if meta.ExternalMetadata.AniList.Season1Year > 0 {
+			year = meta.ExternalMetadata.AniList.Season1Year
+		}
 	}
 
 	var parts []string
@@ -493,6 +517,10 @@ func upload(ctx context.Context, req trackers.UploadRequest) (api.UploadSummary,
 				if req.Logger != nil {
 					req.Logger.Warnf("trackers: nekobt download torrent failed: %v", dlErr)
 				}
+				if tb, prepErr := prepareNekoBTTorrentBytes(req.Meta.TorrentPath, req.TrackerConfig.AnnounceURL); prepErr == nil {
+					_ = os.WriteFile(artPath, tb, 0o600)
+					artifactPath = artPath
+				}
 			} else {
 				artifactPath = artPath
 			}
@@ -593,6 +621,16 @@ func prepareNekoBTTorrentBytes(torrentPath string, customAnnounce string) ([]byt
 		}
 	}
 	torrentMeta.AnnounceList = announceList
+
+	// Clear private flag so torrent for NekoBT is 100% public (enables DHT and PeX).
+	// Also ensure Source is "NekoBT" so info-hash differs from private tracker torrents.
+	if info, err := torrentMeta.UnmarshalInfo(); err == nil {
+		info.Private = nil
+		info.Source = "NekoBT"
+		if infoBytes, err := bencode.Marshal(info); err == nil {
+			torrentMeta.InfoBytes = infoBytes
+		}
+	}
 
 	var buf bytes.Buffer
 	if err := bencode.NewEncoder(&buf).Encode(torrentMeta); err != nil {

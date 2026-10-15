@@ -216,14 +216,31 @@ func (c *Client) FetchMetadata(ctx context.Context, input MetadataInput) (Metada
 				c.logger.Warnf("tmdb: german title fallback lookup failed: %v", err)
 			}
 		}
+		if !hasUsableLocalizedTitle(result.LocalizedTitles, "es") && !hasUsableLocalizedTitle(result.LocalizedTitles, "es-ES") {
+			if title, err := c.fetchLocalizedTitle(requestCtx, path, "es-ES"); err == nil && title != "" {
+				result.LocalizedTitles["es"] = title
+				result.LocalizedTitles["es-ES"] = title
+			} else if err != nil && c.logger != nil {
+				c.logger.Warnf("tmdb: spanish title fallback lookup failed: %v", err)
+			}
+		}
 	} else {
 		if c.logger != nil {
 			c.logger.Warnf("tmdb: translations lookup failed: %v", translationsErr)
 		}
+		if result.LocalizedTitles == nil {
+			result.LocalizedTitles = make(map[string]string)
+		}
 		if title, err := c.fetchLocalizedTitle(requestCtx, path, "de-DE"); err == nil && title != "" {
-			result.LocalizedTitles = map[string]string{"de": title}
+			result.LocalizedTitles["de"] = title
 		} else if err != nil && c.logger != nil {
 			c.logger.Warnf("tmdb: german title fallback lookup failed: %v", err)
+		}
+		if title, err := c.fetchLocalizedTitle(requestCtx, path, "es-ES"); err == nil && title != "" {
+			result.LocalizedTitles["es"] = title
+			result.LocalizedTitles["es-ES"] = title
+		} else if err != nil && c.logger != nil {
+			c.logger.Warnf("tmdb: spanish title fallback lookup failed: %v", err)
 		}
 	}
 

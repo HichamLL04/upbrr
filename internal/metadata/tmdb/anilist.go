@@ -101,6 +101,31 @@ func (c *Client) ResolveAnime(ctx context.Context, tmdbName string, input Metada
 	if best.SeasonYear != 0 {
 		result.SeasonYear = strconv.Itoa(best.SeasonYear)
 	}
+
+	s01Year := 0
+	for _, item := range media {
+		if findSeasonInTitles(item.Title) == 1 && item.SeasonYear != 0 {
+			s01Year = item.SeasonYear
+			break
+		}
+	}
+	if s01Year == 0 {
+		for _, item := range media {
+			if findSeasonInTitles(item.Title) == 0 && item.SeasonYear != 0 {
+				s01Year = item.SeasonYear
+				break
+			}
+		}
+	}
+	if s01Year == 0 {
+		for _, item := range media {
+			if item.SeasonYear != 0 && (s01Year == 0 || item.SeasonYear < s01Year) {
+				s01Year = item.SeasonYear
+			}
+		}
+	}
+	result.Season1Year = s01Year
+
 	result.Episodes = best.Episodes
 	result.Demographic = resolveDemographic(best.Tags, result.Demographic)
 	if input.MALManual != 0 {
@@ -271,7 +296,7 @@ func anilistQuery(byID bool) string {
 // anilistMetadataQuery requests the rich fields persisted for MAL/AniList
 // preview; keep it aligned with AniListMetadataResult and API mapping.
 func anilistMetadataQuery() string {
-	return `query ($idMal: Int) { Media(idMal: $idMal, type: ANIME) { id idMal siteUrl title { romaji english native userPreferred } description(asHtml: false) format status startDate { year month day } endDate { year month day } season seasonYear episodes duration countryOfOrigin source coverImage { extraLarge large medium color } bannerImage genres synonyms averageScore meanScore popularity favourites isAdult tags { name rank category isAdult isGeneralSpoiler isMediaSpoiler } studios(isMain: true) { nodes { id name siteUrl } } trailer { id site thumbnail } nextAiringEpisode { airingAt timeUntilAiring episode } externalLinks { site url type language } } }`
+	return `query ($idMal: Int) { Media(idMal: $idMal, type: ANIME) { id idMal siteUrl title { romaji english native userPreferred } description(asHtml: false) format status startDate { year month day } endDate { year month day } season seasonYear episodes duration countryOfOrigin source coverImage { extraLarge large medium color } bannerImage genres synonyms averageScore meanScore popularity favourites isAdult tags { name rank category isAdult isGeneralSpoiler isMediaSpoiler } studios(isMain: true) { nodes { id name siteUrl } } trailer { id site thumbnail } nextAiringEpisode { airingAt timeUntilAiring episode } externalLinks { site url type language } relations { edges { relationType node { id idMal format seasonYear startDate { year } } } } } }`
 }
 
 func cleanAnilistSearch(value string) string {
@@ -405,6 +430,24 @@ type anilistMetadataMedia struct {
 	Trailer           anilistTrailer          `json:"trailer"`
 	NextAiringEpisode anilistAiringEpisode    `json:"nextAiringEpisode"`
 	ExternalLinks     []anilistExternalLink   `json:"externalLinks"`
+	Relations         anilistMetadataRelations `json:"relations"`
+}
+
+type anilistMetadataRelations struct {
+	Edges []anilistRelationEdge `json:"edges"`
+}
+
+type anilistRelationEdge struct {
+	RelationType string              `json:"relationType"`
+	Node         anilistRelationNode `json:"node"`
+}
+
+type anilistRelationNode struct {
+	ID         int              `json:"id"`
+	IDMal      int              `json:"idMal"`
+	Format     string           `json:"format"`
+	SeasonYear int              `json:"seasonYear"`
+	StartDate  anilistFuzzyDate `json:"startDate"`
 }
 
 type anilistMetadataTitle struct {
@@ -468,6 +511,25 @@ type anilistExternalLink struct {
 // mapAniListMetadata converts the GraphQL wire shape into the stable metadata
 // result while copying slices so callers can store or mutate the result safely.
 func mapAniListMetadata(media anilistMetadataMedia) AniListMetadataResult {
+	s01Year := 0
+	for _, edge := range media.Relations.Edges {
+		if strings.EqualFold(edge.RelationType, "PREQUEL") {
+			y := edge.Node.SeasonYear
+			if y == 0 {
+				y = edge.Node.StartDate.Year
+			}
+			if y > 0 && (s01Year == 0 || y < s01Year) {
+				s01Year = y
+			}
+		}
+	}
+	if s01Year == 0 && media.SeasonYear > 0 {
+		s01Year = media.SeasonYear
+	}
+	if s01Year == 0 && media.StartDate.Year > 0 {
+		s01Year = media.StartDate.Year
+	}
+
 	return AniListMetadataResult{
 		AniListID:          media.ID,
 		MALID:              media.IDMal,
@@ -483,6 +545,7 @@ func mapAniListMetadata(media anilistMetadataMedia) AniListMetadataResult {
 		EndDate:            formatAniListDate(media.EndDate),
 		Season:             media.Season,
 		SeasonYear:         media.SeasonYear,
+		Season1Year:        s01Year,
 		Episodes:           media.Episodes,
 		Duration:           media.Duration,
 		CountryOfOrigin:    media.CountryOfOrigin,

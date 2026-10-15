@@ -268,6 +268,7 @@ type AnimeResult struct {
 	MALID       int
 	English     string
 	SeasonYear  string
+	Season1Year int
 	Episodes    int
 	Demographic string
 }
@@ -302,6 +303,7 @@ type AniListMetadataResult struct {
 	EndDate    string
 	Season     string
 	SeasonYear int
+	Season1Year int
 	Episodes   int
 	// Duration is AniList's average episode duration in minutes.
 	Duration        int

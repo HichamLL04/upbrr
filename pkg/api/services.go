@@ -410,6 +410,7 @@ type AniListMetadata struct {
 	EndDate    string
 	Season     string
 	SeasonYear int
+	Season1Year int
 	Episodes   int
 	// Duration is AniList's average episode duration in minutes.
 	Duration        int

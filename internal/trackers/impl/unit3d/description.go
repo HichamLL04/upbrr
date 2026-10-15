@@ -48,7 +48,8 @@ func buildUnit3DDescription(ctx context.Context, tracker string, meta api.Prepar
 			description = note + "\n\n" + description
 		}
 	}
-	if strings.EqualFold(strings.TrimSpace(tracker), "EMUW") {
+	trackerKey := strings.ToUpper(strings.TrimSpace(tracker))
+	if trackerKey == "EMUW" || trackerKey == "EMUZ" || trackerKey == "EMU" {
 		var youtubeURL string
 		if meta.ExternalMetadata.TMDB != nil {
 			youtubeURL = meta.ExternalMetadata.TMDB.YouTube

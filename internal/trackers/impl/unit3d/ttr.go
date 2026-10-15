@@ -23,9 +23,10 @@ func BuildTTRName(meta api.PreparedMetadata, customTag string) string {
 	}
 
 	title := resolveLTTitle(meta)
+	year := resolveReleaseYear(meta)
 	yearStr := ""
-	if meta.Release.Year > 0 {
-		yearStr = strconv.Itoa(meta.Release.Year)
+	if year > 0 {
+		yearStr = strconv.Itoa(year)
 	}
 
 	category := resolveUnit3DCategory(meta)

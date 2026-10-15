@@ -84,9 +84,10 @@ func BuildNOBSName(meta api.PreparedMetadata, customTag string) string {
 	}
 
 	title := resolveLTTitle(meta)
+	year := resolveReleaseYear(meta)
 	yearStr := ""
-	if meta.Release.Year > 0 {
-		yearStr = strconv.Itoa(meta.Release.Year)
+	if year > 0 {
+		yearStr = strconv.Itoa(year)
 	}
 
 	category := resolveUnit3DCategory(meta)
@@ -353,8 +354,8 @@ func resolveNOBSAudio(rawName string, meta api.PreparedMetadata) (audioLangs str
 		"latino":     "LAT",
 		"latin":      "LAT",
 		"es-419":     "LAT",
-		"english":    "ING",
-		"en":         "ING",
+		"english":    "ENG",
+		"en":         "ENG",
 		"japanese":   "JAP",
 		"ja":         "JAP",
 		"french":     "FRA",

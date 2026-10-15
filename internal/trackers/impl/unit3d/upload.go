@@ -221,12 +221,108 @@ func uploadUnit3D(ctx context.Context, req trackers.UploadRequest) (api.UploadSu
 		logger.Infof("trackers: %s torrent URL: %s", trackerName, artifact.TorrentURL)
 	}
 
+	artifactPath := ""
+	if artifact.TorrentID != "" || artifact.DownloadURL != "" {
+		if artPath, err := trackers.ResolveTrackerTorrentArtifactPath(req.Meta, req.AppConfig.MainSettings.DBPath, trackerName); err == nil && artPath != "" {
+			if dlErr := downloadUnit3DPersonalizedTorrent(ctx, client, baseURL, artifact.TorrentID, artifact.DownloadURL, apiKey, artPath); dlErr == nil {
+				artifactPath = artPath
+				artifact.TorrentPath = artPath
+				logger.Infof("trackers: %s personalized torrent saved to %s", trackerName, artPath)
+			} else {
+				logger.Warnf("trackers: %s could not download personalized torrent: %v", trackerName, dlErr)
+			}
+		}
+	}
+	if artifactPath == "" {
+		announce := strings.TrimSpace(req.TrackerConfig.AnnounceURL)
+		if announce == "" {
+			announce = strings.TrimSpace(req.TrackerConfig.MyAnnounceURL)
+		}
+		if announce != "" {
+			if basePath, err := trackers.ResolveUploadTorrentPath(req.Meta, req.AppConfig.MainSettings.DBPath); err == nil && basePath != "" {
+				if artPath, err := trackers.ResolveTrackerTorrentArtifactPath(req.Meta, req.AppConfig.MainSettings.DBPath, trackerName); err == nil && artPath != "" {
+					if err := trackers.WritePersonalizedTorrent(basePath, artPath, announce, artifact.TorrentURL, trackerName); err == nil {
+						artifact.TorrentPath = artPath
+						logger.Infof("trackers: %s generated personalized torrent from base: %s", trackerName, artPath)
+					}
+				}
+			}
+		}
+	}
+
 	summary := api.UploadSummary{Uploaded: 1}
-	if artifact.DownloadURL != "" {
+	if artifact.DownloadURL != "" || artifact.TorrentPath != "" {
 		summary.UploadedTorrents = append(summary.UploadedTorrents, artifact)
 	}
 
 	return summary, nil
+}
+
+func downloadUnit3DPersonalizedTorrent(ctx context.Context, client *http.Client, baseURL, torrentID, downloadURL, apiKey, outputPath string) error {
+	var candidates []string
+	if strings.TrimSpace(torrentID) != "" && strings.TrimSpace(baseURL) != "" {
+		base := strings.TrimRight(baseURL, "/")
+		if apiKey != "" {
+			candidates = append(candidates, fmt.Sprintf("%s/api/torrents/%s/download?api_token=%s", base, torrentID, apiKey))
+		}
+		candidates = append(candidates,
+			fmt.Sprintf("%s/api/torrents/%s/download", base, torrentID),
+			fmt.Sprintf("%s/torrent/download/%s", base, torrentID),
+		)
+	}
+	if strings.TrimSpace(downloadURL) != "" {
+		if apiKey != "" && !strings.Contains(downloadURL, "api_token=") {
+			sep := "?"
+			if strings.Contains(downloadURL, "?") {
+				sep = "&"
+			}
+			candidates = append(candidates, downloadURL+sep+"api_token="+apiKey)
+		}
+		candidates = append(candidates, downloadURL)
+	}
+
+	var lastErr error
+	for _, candURL := range candidates {
+		dlCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		req, err := http.NewRequestWithContext(dlCtx, http.MethodGet, candURL, nil)
+		if err != nil {
+			cancel()
+			lastErr = err
+			continue
+		}
+		req.Header.Set("User-Agent", "upbrr")
+		req.Header.Set("Accept", "application/x-bittorrent, application/octet-stream, */*")
+		if apiKey != "" {
+			trackerdata.SetUnit3DAPIHeaders(req, apiKey)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			cancel()
+			lastErr = err
+			continue
+		}
+		data, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		cancel()
+
+		if resp.StatusCode == http.StatusOK && len(data) > 100 {
+			headLen := len(data)
+			if headLen > 500 {
+				headLen = 500
+			}
+			if data[0] == 'd' && (strings.Contains(string(data[:headLen]), "announce") || strings.Contains(string(data), "info")) {
+				if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+					return err
+				}
+				if err := os.WriteFile(outputPath, data, 0644); err != nil {
+					return err
+				}
+				return nil
+			}
+		}
+		lastErr = fmt.Errorf("HTTP %d (%d bytes)", resp.StatusCode, len(data))
+	}
+	return lastErr
 }
 
 func defaultUnit3DBaseURL(tracker string) string {
@@ -671,6 +767,15 @@ func buildUnit3DData(req trackers.UploadRequest, name, description, mediainfo, b
 		"sticky":           "0",
 	}
 
+	if meta.ExternalMetadata.AniList != nil && meta.ExternalMetadata.AniList.AniListID > 0 {
+		anilistStr := strconv.Itoa(meta.ExternalMetadata.AniList.AniListID)
+		data["anilist"] = anilistStr
+		data["anilist_id"] = anilistStr
+	}
+	if trailer := resolveUnit3DTrailer(meta); trailer != "" {
+		data["youtube"] = trailer
+	}
+
 	if strings.EqualFold(category, "TV") {
 		if !shouldIncludeUnit3DTVFields(meta, category) {
 			applyUnit3DAdditionalPayload(req, data)
@@ -739,6 +844,30 @@ func resolveKeywordsForTracker(tracker string, meta api.PreparedMetadata) string
 		return resolveACMKeywords(meta)
 	}
 	return resolveKeywords(meta)
+}
+
+func resolveUnit3DTrailer(meta api.PreparedMetadata) string {
+	if meta.ExternalMetadata.TMDB != nil {
+		yt := strings.TrimSpace(meta.ExternalMetadata.TMDB.YouTube)
+		if yt != "" {
+			if strings.HasPrefix(strings.ToLower(yt), "http://") || strings.HasPrefix(strings.ToLower(yt), "https://") {
+				return yt
+			}
+			return "https://www.youtube.com/watch?v=" + yt
+		}
+	}
+	if meta.ExternalMetadata.AniList != nil {
+		trailer := meta.ExternalMetadata.AniList.Trailer
+		if strings.TrimSpace(trailer.ID) != "" {
+			if strings.HasPrefix(strings.ToLower(trailer.ID), "http://") || strings.HasPrefix(strings.ToLower(trailer.ID), "https://") {
+				return strings.TrimSpace(trailer.ID)
+			}
+			if strings.EqualFold(trailer.Site, "youtube") || trailer.Site == "" {
+				return "https://www.youtube.com/watch?v=" + strings.TrimSpace(trailer.ID)
+			}
+		}
+	}
+	return ""
 }
 
 func resolveTVDBID(meta api.PreparedMetadata) int {

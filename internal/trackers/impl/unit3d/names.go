@@ -65,7 +65,7 @@ func BuildUnit3DName(tracker string, meta api.PreparedMetadata, cfg config.Track
 		return BuildCBRName(meta, cfg.TagForCustomRelease)
 	case "DP":
 		return buildDPName(name, meta)
-	case "EMUW":
+	case "EMUW", "EMUZ", "EMU":
 		return BuildEMUWName(meta, cfg.TagForCustomRelease)
 	case "LCD":
 		return BuildCBRName(meta, cfg.TagForCustomRelease)
@@ -92,6 +92,73 @@ func BuildUnit3DName(tracker string, meta api.PreparedMetadata, cfg config.Track
 	default:
 		return cleanUnit3DStandardName(name, meta)
 	}
+}
+
+var fourDigitYearPattern = regexp.MustCompile(`\b(19\d\d|20\d\d)\b`)
+
+func resolveReleaseYear(meta api.PreparedMetadata) int {
+	isTV := meta.SeasonInt > 0 || meta.Release.Season > 0 || meta.HasTVSeasonEpisodeSignal() || resolveUnit3DCategory(meta) == "TV"
+	if isTV && (meta.SeasonInt > 1 || meta.Release.Season > 1) {
+		if meta.ExternalMetadata.TMDB != nil && meta.ExternalMetadata.TMDB.Year > 0 {
+			return meta.ExternalMetadata.TMDB.Year
+		}
+		if meta.ExternalMetadata.TVDB != nil && meta.ExternalMetadata.TVDB.Year > 0 {
+			return meta.ExternalMetadata.TVDB.Year
+		}
+		if meta.ExternalMetadata.IMDB != nil && meta.ExternalMetadata.IMDB.Year > 0 {
+			return meta.ExternalMetadata.IMDB.Year
+		}
+		if meta.ExternalMetadata.AniList != nil && meta.ExternalMetadata.AniList.Season1Year > 0 {
+			return meta.ExternalMetadata.AniList.Season1Year
+		}
+	}
+	if meta.Release.Year > 0 {
+		return meta.Release.Year
+	}
+	if meta.ExternalMetadata.TMDB != nil && meta.ExternalMetadata.TMDB.Year > 0 {
+		return meta.ExternalMetadata.TMDB.Year
+	}
+	if meta.ExternalMetadata.IMDB != nil && meta.ExternalMetadata.IMDB.Year > 0 {
+		return meta.ExternalMetadata.IMDB.Year
+	}
+	if meta.ExternalMetadata.TVDB != nil && meta.ExternalMetadata.TVDB.Year > 0 {
+		return meta.ExternalMetadata.TVDB.Year
+	}
+	if meta.ExternalMetadata.AniList != nil {
+		if meta.ExternalMetadata.AniList.Season1Year > 0 {
+			return meta.ExternalMetadata.AniList.Season1Year
+		}
+		if y := parseYearPrefix(meta.ExternalMetadata.AniList.StartDate); y > 0 {
+			return y
+		}
+	}
+	if meta.ExternalMetadata.TVmaze != nil {
+		if y := parseYearPrefix(meta.ExternalMetadata.TVmaze.Premiered); y > 0 {
+			return y
+		}
+	}
+	for _, text := range []string{meta.ReleaseName, meta.ReleaseNameClean, meta.SourcePath} {
+		if text == "" {
+			continue
+		}
+		matches := fourDigitYearPattern.FindAllString(text, -1)
+		for i := len(matches) - 1; i >= 0; i-- {
+			if y, err := strconv.Atoi(matches[i]); err == nil && y >= 1900 && y <= 2100 {
+				return y
+			}
+		}
+	}
+	return 0
+}
+
+func parseYearPrefix(s string) int {
+	s = strings.TrimSpace(s)
+	if len(s) >= 4 {
+		if y, err := strconv.Atoi(s[:4]); err == nil && y >= 1900 && y <= 2100 {
+			return y
+		}
+	}
+	return 0
 }
 
 func formatSeasonEpisodeToken(meta api.PreparedMetadata, rawName string) string {

@@ -32,7 +32,7 @@ func initTrackers() {
 		}
 
 		unit3DTrackers := []string{
-			"A4K", "ACM", "AITHER", "BLU", "CBR", "DP", "EMUW",
+			"A4K", "ACM", "AITHER", "BLU", "CBR", "DP", "EMUW", "EMUZ", "EMU",
 			"FRIKI", "HHD", "IHD", "ITT", "LCD", "LDU", "LST", "LT",
 			"LUME", "MILNUEVE", "MN", "MNS", "NOBS", "OE", "OTW", "PT", "PTT", "R4E", "RAS", "RF", "RHD",
 			"SAM", "SHRI", "SP", "STC", "TIK", "TLZ", "TOS", "TTR",
@@ -69,8 +69,15 @@ func BaseURL(tracker string) (string, bool) {
 	if key == "" {
 		return "", false
 	}
-	baseURL, ok := trackerBaseURLs[key]
-	return baseURL, ok
+	if baseURL, ok := trackerBaseURLs[key]; ok {
+		return baseURL, true
+	}
+	if key == "EMUZ" || key == "EMU" {
+		if baseURL, ok := trackerBaseURLs["EMUW"]; ok {
+			return baseURL, true
+		}
+	}
+	return "", false
 }
 
 func IsKnown(tracker string) bool {

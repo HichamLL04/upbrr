@@ -84,8 +84,13 @@ func buildUnit3DSearchParams(meta api.PreparedMetadata, tracker string) url.Valu
 	return params
 }
 
+func isEMUWTracker(tracker string) bool {
+	t := strings.ToUpper(strings.TrimSpace(tracker))
+	return t == "EMUW" || t == "EMUZ" || t == "EMU"
+}
+
 func resolveUnit3DDupeCategoryID(tracker string, category string) string {
-	if strings.EqualFold(tracker, "EMUW") {
+	if isEMUWTracker(tracker) {
 		switch strings.ToUpper(strings.TrimSpace(category)) {
 		case "MOVIE", "FANRES":
 			return "1"
@@ -99,7 +104,7 @@ func resolveUnit3DDupeCategoryID(tracker string, category string) string {
 }
 
 func resolveUnit3DDupeTypeID(tracker string, typeValue string) string {
-	if strings.EqualFold(tracker, "EMUW") {
+	if isEMUWTracker(tracker) {
 		mapping := map[string]string{
 			"DISC":   "1",
 			"REMUX":  "2",
@@ -115,7 +120,7 @@ func resolveUnit3DDupeTypeID(tracker string, typeValue string) string {
 }
 
 func resolveUnit3DDupeResolutionID(tracker string, resolution string) string {
-	if strings.EqualFold(tracker, "EMUW") {
+	if isEMUWTracker(tracker) {
 		mapping := map[string]string{
 			"4320p": "1",
 			"2160p": "2",
