@@ -106,3 +106,39 @@ func baseDisplayName(value string) string {
 	}
 	return strings.ToUpper(base[:1]) + base[1:]
 }
+
+// ExpandLanguageVariants returns all lowercased variants, codes, and English names for a list of language tokens.
+func ExpandLanguageVariants(values []string) []string {
+	out := make([]string, 0, len(values)*3)
+	seen := make(map[string]bool)
+
+	add := func(s string) {
+		trimmed := strings.ToLower(strings.TrimSpace(s))
+		if trimmed != "" && !seen[trimmed] {
+			seen[trimmed] = true
+			out = append(out, trimmed)
+		}
+	}
+
+	for _, value := range values {
+		add(value)
+
+		if norm := NormalizeLanguageDisplay(value); norm != "" {
+			add(norm)
+		}
+
+		clean := strings.ToLower(strings.TrimSpace(value))
+		if idx := strings.IndexAny(clean, "-_ ,(/"); idx > 0 {
+			add(clean[:idx])
+		}
+
+		if clean == "castellano" || clean == "castilian" || clean == "latino" || strings.HasPrefix(clean, "es-") || clean == "spa" || clean == "es" || strings.HasPrefix(clean, "spanish") {
+			add("spanish")
+			add("es")
+			add("spa")
+			add("castellano")
+		}
+	}
+	return out
+}
+

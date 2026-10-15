@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/autobrr/upbrr/internal/languageutil"
 	"github.com/autobrr/upbrr/pkg/api"
 )
 
@@ -172,7 +173,7 @@ func checkTTRSubtitleOnly(ctx context.Context, meta api.PreparedMetadata, _ api.
 	langs := append([]string{}, meta.AudioLanguages...)
 	langs = append(langs, meta.SubtitleLanguages...)
 	langs = append(langs, meta.Release.Language...)
-	if !containsAny(normalizeStrings(langs), []string{"spanish", "es", "spa", "castellano", "castilian", "latino", "latin"}) {
+	if !containsAny(languageutil.ExpandLanguageVariants(langs), []string{"spanish", "es", "spa", "castellano", "castilian", "latino", "latin"}) {
 		return Fail("TTR requires at least one Spanish audio or subtitle track.")
 	}
 	return Pass()

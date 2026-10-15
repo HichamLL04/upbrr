@@ -551,9 +551,9 @@ func evaluateLanguageRule(meta api.PreparedMetadata, rule *additional.LanguageRu
 		return true, ""
 	}
 
-	audioLanguages := normalizeStrings(meta.AudioLanguages)
-	subLanguages := normalizeStrings(meta.SubtitleLanguages)
-	required := normalizeStrings(rule.Languages)
+	audioLanguages := languageutil.ExpandLanguageVariants(meta.AudioLanguages)
+	subLanguages := languageutil.ExpandLanguageVariants(meta.SubtitleLanguages)
+	required := languageutil.ExpandLanguageVariants(rule.Languages)
 	if len(required) == 0 {
 		return true, ""
 	}

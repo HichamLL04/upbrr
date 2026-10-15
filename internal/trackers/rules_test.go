@@ -94,6 +94,22 @@ func TestEvaluateRulesLanguageRulePasses(t *testing.T) {
 	}
 }
 
+func TestEvaluateRulesTTRSpanish(t *testing.T) {
+	for _, subLang := range []string{"es-ES", "es-419", "Spanish (Spain)", "Castellano", "es"} {
+		meta := api.PreparedMetadata{
+			AudioLanguages:         []string{"Japanese"},
+			SubtitleLanguages:      []string{subLang},
+			ValidMediaInfoSettings: true,
+			Container:              "mkv",
+			Release:                api.ReleaseInfo{Resolution: "1080p"},
+		}
+		failures := EvaluateRules(context.Background(), "TTR", meta, nil)
+		if len(failures) != 0 {
+			t.Errorf("expected no failures for subLang %q on TTR, got %#v", subLang, failures)
+		}
+	}
+}
+
 func TestEvaluateRulesLanguageRuleMissingData(t *testing.T) {
 	meta := api.PreparedMetadata{ValidMediaInfoSettings: true}
 	failures := EvaluateRules(context.Background(), "TOS", meta, nil)
