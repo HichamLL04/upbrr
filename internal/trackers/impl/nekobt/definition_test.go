@@ -206,6 +206,22 @@ func TestNekoBTBuildTitleIncludesSeason(t *testing.T) {
 			},
 			contains: "(2023) S03E02",
 		},
+		{
+			name: "series S00 folder preserves S00 in title",
+			meta: api.PreparedMetadata{
+				Release:   api.ReleaseInfo{Title: "Example Show", Year: 2026},
+				SeasonStr: "S00",
+			},
+			contains: "S00",
+		},
+		{
+			name: "series S00 folder detected from release name preserves S00 in title",
+			meta: api.PreparedMetadata{
+				ReleaseName: "Example.Show.S00.1080p.BluRay.x264-GRP",
+				Release:     api.ReleaseInfo{Title: "Example Show", Year: 2026},
+			},
+			contains: "S00",
+		},
 	}
 
 	for _, tc := range cases {
@@ -577,5 +593,50 @@ func TestNekoBTFansubWithOfficialSubs(t *testing.T) {
 	}
 }
 
+func TestNekoBTS00SpecialUploadPayload(t *testing.T) {
+	t.Parallel()
 
+	torrentFile := filepath.Join(t.TempDir(), "test.torrent")
+	if err := os.WriteFile(torrentFile, []byte("d8:announce38:https://tracker.nekobt.to/announce4:infod6:lengthi12345e4:name8:test.mkvee"), 0o600); err != nil {
+		t.Fatalf("write temp torrent: %v", err)
+	}
 
+	req := trackers.UploadRequest{
+		Tracker: "NEKOBT",
+		Meta: api.PreparedMetadata{
+			ReleaseName:       "Example.Show.S00.1080p.BluRay.x264-GRP",
+			ReleaseNameClean:  "Example Show S00 1080p BluRay x264-GRP",
+			SourcePath:        "/media/Example.Show.S00",
+			TorrentPath:       torrentFile,
+			Tag:               "GRP",
+			Type:              "ENCODE",
+			VideoCodec:        "AVC",
+			AudioLanguages:    []string{"ja"},
+			SubtitleLanguages: []string{"en"},
+			SeasonStr:         "S00",
+			TVPack:            true,
+			Release: api.ReleaseInfo{
+				Title: "Example Show",
+				Year:  2026,
+			},
+		},
+		TrackerConfig: config.TrackerConfig{
+			APIKey: "test-token",
+		},
+	}
+
+	payload, err := preparePayload(context.Background(), req)
+	if err != nil {
+		t.Fatalf("preparePayload failed: %v", err)
+	}
+
+	if !payload.Batch {
+		t.Errorf("expected Batch to be true for S00 pack, got %v", payload.Batch)
+	}
+	if payload.Movie {
+		t.Errorf("expected Movie to be false for S00 pack, got %v", payload.Movie)
+	}
+	if !strings.Contains(payload.Title, "S00") {
+		t.Errorf("expected Title to contain S00, got %q", payload.Title)
+	}
+}

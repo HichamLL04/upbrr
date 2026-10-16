@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/autobrr/upbrr/internal/config"
 	"github.com/autobrr/upbrr/internal/metadata/metautil"
+	"github.com/autobrr/upbrr/internal/pathutil"
 	"github.com/autobrr/upbrr/internal/trackers"
 	"github.com/autobrr/upbrr/internal/trackers/impl/commonhttp"
 	"github.com/autobrr/upbrr/pkg/api"
@@ -102,6 +104,23 @@ func resolveNekoBTGroupTag(meta api.PreparedMetadata, cfg config.TrackerConfig) 
 		return custom
 	}
 	return "GapMoe"
+}
+
+var s00TokenPattern = regexp.MustCompile(`(?i)\bS00(?:E\d+)?\b`)
+
+func hasS00Signal(meta api.PreparedMetadata) bool {
+	if strings.EqualFold(strings.TrimSpace(meta.SeasonStr), "S00") {
+		return true
+	}
+	if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(meta.EpisodeStr)), "S00") {
+		return true
+	}
+	for _, text := range []string{meta.ReleaseName, meta.ReleaseNameClean, meta.SourcePath, pathutil.Base(meta.SourcePath)} {
+		if text != "" && s00TokenPattern.MatchString(text) {
+			return true
+		}
+	}
+	return false
 }
 
 func buildTitle(meta api.PreparedMetadata, cfg config.TrackerConfig) string {
@@ -206,9 +225,13 @@ func buildTitle(meta api.PreparedMetadata, cfg config.TrackerConfig) string {
 		sb.WriteString(fmt.Sprintf(" (%d)", year))
 	}
 	// Append season/episode identifier for TV content
-	seasonStr := meta.SeasonStr
-	if seasonStr == "" && meta.Release.Season > 0 {
-		seasonStr = fmt.Sprintf("S%02d", meta.Release.Season)
+	seasonStr := strings.TrimSpace(meta.SeasonStr)
+	if seasonStr == "" {
+		if meta.Release.Season > 0 {
+			seasonStr = fmt.Sprintf("S%02d", meta.Release.Season)
+		} else if hasS00Signal(meta) {
+			seasonStr = "S00"
+		}
 	}
 	episodeStr := meta.EpisodeStr
 	if episodeStr == "" && meta.Release.Episode > 0 && !meta.TVPack {
@@ -247,8 +270,9 @@ func preparePayload(ctx context.Context, req trackers.UploadRequest) (uploadPayl
 		}
 	}
 
-	isMovie := meta.SeasonInt == 0 && meta.EpisodeInt == 0 && !meta.HasTVSeasonEpisodeSignal()
-	isBatch := (meta.SeasonInt > 0 || meta.Release.Season > 0) && (meta.EpisodeInt == 0 && meta.Release.Episode == 0 || meta.TVPack)
+	isS00 := hasS00Signal(meta)
+	isMovie := meta.SeasonInt == 0 && meta.EpisodeInt == 0 && !meta.HasTVSeasonEpisodeSignal() && !isS00
+	isBatch := (meta.SeasonInt > 0 || meta.Release.Season > 0 || isS00) && (meta.EpisodeInt == 0 && meta.Release.Episode == 0 || meta.TVPack)
 
 	assets, err := trackers.ResolveDescriptionAssets(ctx, req.Tracker, req.Meta, req.Repo, req.Logger)
 	if err != nil {

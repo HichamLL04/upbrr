@@ -945,7 +945,12 @@ func resolveUnit3DTypeID(meta api.PreparedMetadata) (string, error) {
 }
 
 func inferUnit3DType(meta api.PreparedMetadata) string {
-	for _, candidate := range []string{meta.Type, meta.Release.Type} {
+	candidates := make([]string, 0, 3)
+	if meta.ReleaseNameOverrides.Type != nil {
+		candidates = append(candidates, *meta.ReleaseNameOverrides.Type)
+	}
+	candidates = append(candidates, meta.Type, meta.Release.Type)
+	for _, candidate := range candidates {
 		normalized := normalizeUnit3DTypeCandidate(candidate)
 		if normalized != "" && !isUnit3DCategoryType(normalized) {
 			return normalized
@@ -956,6 +961,9 @@ func inferUnit3DType(meta api.PreparedMetadata) string {
 	source := strings.ToUpper(strings.TrimSpace(meta.Source))
 	if source == "" {
 		source = strings.ToUpper(strings.TrimSpace(meta.Release.Source))
+	}
+	if source == "" && meta.ReleaseNameOverrides.Source != nil {
+		source = strings.ToUpper(strings.TrimSpace(*meta.ReleaseNameOverrides.Source))
 	}
 
 	switch {

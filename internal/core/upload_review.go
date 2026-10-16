@@ -507,6 +507,23 @@ func applyMetadataOverridesToPreparedMeta(meta *api.PreparedMetadata) {
 	if overrides.Anime != nil {
 		meta.Anime = *overrides.Anime
 	}
+	if meta.ReleaseNameOverrides.Type != nil && strings.TrimSpace(*meta.ReleaseNameOverrides.Type) != "" {
+		t := strings.TrimSpace(*meta.ReleaseNameOverrides.Type)
+		upper := strings.ToUpper(t)
+		upper = strings.ReplaceAll(upper, "-", "")
+		upper = strings.ReplaceAll(upper, " ", "")
+		meta.Type = upper
+		meta.Release.Type = t
+		if strings.EqualFold(meta.Type, "WEBRIP") || strings.EqualFold(meta.Type, "WEBDL") {
+			meta.Source = "Web"
+			meta.Release.Source = "Web"
+		}
+	}
+	if meta.ReleaseNameOverrides.Source != nil && strings.TrimSpace(*meta.ReleaseNameOverrides.Source) != "" {
+		s := strings.TrimSpace(*meta.ReleaseNameOverrides.Source)
+		meta.Source = s
+		meta.Release.Source = s
+	}
 }
 
 func applyOriginalLanguageOverrideToPreparedMeta(meta *api.PreparedMetadata, language *string) {

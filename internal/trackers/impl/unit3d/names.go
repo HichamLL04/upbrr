@@ -169,6 +169,12 @@ func formatSeasonEpisodeToken(meta api.PreparedMetadata, rawName string) string 
 	if epStr := strings.ToUpper(strings.TrimSpace(meta.EpisodeStr)); strings.HasPrefix(epStr, "S") && strings.Contains(epStr, "E") {
 		return epStr
 	}
+	if strings.EqualFold(strings.TrimSpace(meta.SeasonStr), "S00") {
+		if episode > 0 {
+			return fmt.Sprintf("S00E%02d", episode)
+		}
+		return "S00"
+	}
 	if season > 0 {
 		return fmt.Sprintf("S%02d", season)
 	}

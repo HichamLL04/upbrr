@@ -41,6 +41,8 @@ type Result struct {
 	DailyDate       string
 	AbsoluteEpisode int
 	MultiEpisode    []int
+	SeasonStr       string
+	HasSeason       bool
 }
 
 func Extract(path string, meta api.PreparedMetadata) Result {
@@ -60,26 +62,44 @@ func Extract(path string, meta api.PreparedMetadata) Result {
 			result.DailyDate = parseDailyDate(candidate)
 		}
 
-		if result.Season == 0 && result.Episode == 0 {
+		if !result.HasSeason && result.Season == 0 && result.Episode == 0 {
 			if season, episode, multi, ok := parseSeasonEpisode(candidate); ok {
 				result.Season = season
 				result.Episode = episode
+				result.HasSeason = true
+				if season == 0 {
+					result.SeasonStr = "S00"
+				} else {
+					result.SeasonStr = FormatSeason(season)
+				}
 				if len(multi) > 0 {
 					result.MultiEpisode = append(result.MultiEpisode[:0], multi...)
 				}
 			}
 		}
 
-		if result.Season == 0 && result.Episode == 0 {
+		if !result.HasSeason && result.Season == 0 && result.Episode == 0 {
 			if season, episode, ok := parseAltSeasonEpisode(candidate); ok {
 				result.Season = season
 				result.Episode = episode
+				result.HasSeason = true
+				if season == 0 {
+					result.SeasonStr = "S00"
+				} else {
+					result.SeasonStr = FormatSeason(season)
+				}
 			}
 		}
 
-		if result.Season == 0 {
+		if !result.HasSeason && result.Season == 0 {
 			if season, ok := parseSeasonOnly(candidate); ok {
 				result.Season = season
+				result.HasSeason = true
+				if season == 0 {
+					result.SeasonStr = "S00"
+				} else {
+					result.SeasonStr = FormatSeason(season)
+				}
 				seasonOnly = true
 			}
 		}
@@ -160,7 +180,8 @@ func parseSeasonEpisode(value string) (int, int, []int, bool) {
 		return 0, 0, nil, false
 	}
 	season := parseInt(match[1])
-	if season == 0 {
+	isS00 := strings.EqualFold(match[1], "00") || strings.EqualFold(match[1], "0")
+	if season == 0 && !isS00 {
 		return 0, 0, nil, false
 	}
 	episodes := make([]int, 0, 4)
@@ -189,7 +210,8 @@ func parseAltSeasonEpisode(value string) (int, int, bool) {
 	}
 	season := parseInt(match[1])
 	episode := parseInt(match[2])
-	if season == 0 || episode == 0 {
+	isS0 := match[1] == "0" || match[1] == "00"
+	if (season == 0 && !isS0) || episode == 0 {
 		return 0, 0, false
 	}
 	return season, episode, true
@@ -197,11 +219,17 @@ func parseAltSeasonEpisode(value string) (int, int, bool) {
 
 func parseSeasonOnly(value string) (int, bool) {
 	if match := seasonOnlyPattern.FindStringSubmatch(value); len(match) > 1 {
+		if strings.EqualFold(match[1], "00") || strings.EqualFold(match[1], "0") {
+			return 0, true
+		}
 		if season := parseInt(match[1]); season > 0 {
 			return season, true
 		}
 	}
 	if match := seasonWordPattern.FindStringSubmatch(value); len(match) > 1 {
+		if strings.EqualFold(match[1], "00") || strings.EqualFold(match[1], "0") {
+			return 0, true
+		}
 		if season := parseInt(match[1]); season > 0 {
 			return season, true
 		}
@@ -223,7 +251,7 @@ func hasExplicitSingleEpisodeToken(value string) bool {
 	if trimmed == "" || multiEpisodePattern.MatchString(trimmed) {
 		return false
 	}
-	if season, episode, multi, ok := parseSeasonEpisode(trimmed); ok && season > 0 && episode > 0 {
+	if _, episode, multi, ok := parseSeasonEpisode(trimmed); ok && episode > 0 {
 		return len(multi) == 0
 	}
 	if _, _, ok := parseAltSeasonEpisode(trimmed); ok {

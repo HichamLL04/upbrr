@@ -348,6 +348,20 @@ func applyMetadataOverrides(meta *api.PreparedMetadata) {
 	if overrides.IA != nil {
 		meta.HasIA = *overrides.IA
 	}
+	if meta.ReleaseNameOverrides.Type != nil && strings.TrimSpace(*meta.ReleaseNameOverrides.Type) != "" {
+		t := strings.TrimSpace(*meta.ReleaseNameOverrides.Type)
+		meta.Type = normalizeReleaseType(t)
+		meta.Release.Type = t
+		if strings.EqualFold(meta.Type, "WEBRIP") || strings.EqualFold(meta.Type, "WEBDL") {
+			meta.Source = "Web"
+			meta.Release.Source = "Web"
+		}
+	}
+	if meta.ReleaseNameOverrides.Source != nil && strings.TrimSpace(*meta.ReleaseNameOverrides.Source) != "" {
+		s := strings.TrimSpace(*meta.ReleaseNameOverrides.Source)
+		meta.Source = s
+		meta.Release.Source = s
+	}
 }
 
 func applyOriginalLanguageOverride(meta *api.PreparedMetadata, language *string) {
@@ -657,6 +671,20 @@ func RebuildReleaseName(meta *api.PreparedMetadata, logger api.Logger) {
 	meta.ReleaseName = nameResult.Name
 	meta.ReleaseNameClean = nameResult.CleanName
 	meta.ReleaseNameMissing = append([]string{}, nameResult.MissingFields...)
+	if meta.ReleaseNameOverrides.Type != nil && strings.TrimSpace(*meta.ReleaseNameOverrides.Type) != "" {
+		t := strings.TrimSpace(*meta.ReleaseNameOverrides.Type)
+		meta.Type = normalizeReleaseType(t)
+		meta.Release.Type = t
+		if strings.EqualFold(meta.Type, "WEBRIP") || strings.EqualFold(meta.Type, "WEBDL") {
+			meta.Source = "Web"
+			meta.Release.Source = "Web"
+		}
+	}
+	if meta.ReleaseNameOverrides.Source != nil && strings.TrimSpace(*meta.ReleaseNameOverrides.Source) != "" {
+		s := strings.TrimSpace(*meta.ReleaseNameOverrides.Source)
+		meta.Source = s
+		meta.Release.Source = s
+	}
 	if logger != nil && nameResult.Name != "" {
 		logger.Tracef("metadata: release name resolved %q", nameResult.Name)
 	}

@@ -266,6 +266,9 @@ func (m PreparedMetadata) SeasonEpisodeWithParsedFallback() (int, int) {
 // HasTVSeasonEpisodeSignal reports whether either canonical metadata or the
 // parsed release name carries a season/episode hint.
 func (m PreparedMetadata) HasTVSeasonEpisodeSignal() bool {
+	if strings.EqualFold(strings.TrimSpace(m.SeasonStr), "S00") {
+		return true
+	}
 	season, episode := m.SeasonEpisodeWithParsedFallback()
 	return season > 0 || episode > 0
 }

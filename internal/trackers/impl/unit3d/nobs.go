@@ -240,6 +240,22 @@ func buildNOBSSourceCredit(rawName string, meta api.PreparedMetadata, customTag 
 
 
 func resolveNOBSFormat(rawName string, meta api.PreparedMetadata) string {
+	if meta.ReleaseNameOverrides.Type != nil && strings.TrimSpace(*meta.ReleaseNameOverrides.Type) != "" {
+		override := strings.ToUpper(strings.TrimSpace(*meta.ReleaseNameOverrides.Type))
+		switch {
+		case strings.Contains(override, "WEBRIP") || strings.Contains(override, "WEB-RIP"):
+			return "WEBRip"
+		case strings.Contains(override, "WEBDL") || strings.Contains(override, "WEB-DL"):
+			return "WEB-DL"
+		case strings.Contains(override, "BLURAY") || strings.Contains(override, "BLU-RAY"):
+			return "BluRay"
+		case strings.Contains(override, "REMUX"):
+			return "BDREMUX"
+		case strings.Contains(override, "HDTV"):
+			return "HDTV"
+		}
+	}
+
 	upper := strings.ToUpper(rawName)
 	switch {
 	case strings.Contains(upper, "BDREMUX") || strings.Contains(upper, "BD-REMUX"):

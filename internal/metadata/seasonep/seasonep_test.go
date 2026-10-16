@@ -166,3 +166,49 @@ func TestFormatSeasonEpisode(t *testing.T) {
 		t.Fatalf("expected empty season, got %q", got)
 	}
 }
+
+func TestExtractSpecials(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want Result
+	}{
+		{
+			name: "single special episode",
+			path: "Example.Show.S00E02.1080p.mkv",
+			want: Result{
+				Season:    0,
+				Episode:   2,
+				SeasonStr: "S00",
+				HasSeason: true,
+				TVPack:    false,
+			},
+		},
+		{
+			name: "special season pack folder",
+			path: "Example.Show.S00.1080p",
+			want: Result{
+				Season:    0,
+				SeasonStr: "S00",
+				HasSeason: true,
+				TVPack:    true,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := Extract(tt.path, api.PreparedMetadata{})
+			if got.Season != tt.want.Season ||
+				got.Episode != tt.want.Episode ||
+				got.SeasonStr != tt.want.SeasonStr ||
+				got.HasSeason != tt.want.HasSeason ||
+				got.TVPack != tt.want.TVPack {
+				t.Fatalf("unexpected result: got=%+v want=%+v", got, tt.want)
+			}
+		})
+	}
+}

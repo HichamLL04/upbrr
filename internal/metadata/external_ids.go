@@ -2089,7 +2089,13 @@ func (s *Service) applyTVEpisodeMetadata(
 	}
 	meta.SeasonInt = season
 	meta.EpisodeInt = episode
-	meta.SeasonStr = seasonep.FormatSeason(season)
+	if season > 0 {
+		meta.SeasonStr = seasonep.FormatSeason(season)
+	} else if initialSeasonStr == "S00" || strings.EqualFold(meta.SeasonStr, "S00") {
+		meta.SeasonStr = "S00"
+	} else {
+		meta.SeasonStr = seasonep.FormatSeason(season)
+	}
 	meta.EpisodeStr = seasonep.FormatEpisode(episode)
 	meta.TMDBDateMatch = tmdbDateMatch
 	if dailyDate != "" {
@@ -2293,7 +2299,13 @@ func (s *Service) applyTVEpisodeMetadata(
 	}
 	meta.SeasonInt = season
 	meta.EpisodeInt = episode
-	meta.SeasonStr = seasonep.FormatSeason(season)
+	if season > 0 {
+		meta.SeasonStr = seasonep.FormatSeason(season)
+	} else if initialSeasonStr == "S00" || strings.EqualFold(meta.SeasonStr, "S00") {
+		meta.SeasonStr = "S00"
+	} else {
+		meta.SeasonStr = seasonep.FormatSeason(season)
+	}
 	meta.EpisodeStr = seasonep.FormatEpisode(episode)
 	meta.EpisodeYear = metautil.FirstInt(episodeYear, meta.EpisodeYear)
 	meta.EpisodeTitle = sanitizeEpisodeTitle(metautil.FirstNonEmptyTrimmed(episodeTitle, tvdbEpisodeTitle, tvmazeEpisodeTitle, tmdbEpisodeTitle))

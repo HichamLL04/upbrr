@@ -101,6 +101,8 @@ func BuildEMUWName(meta api.PreparedMetadata, customTag string) string {
 		parts = append(parts, title)
 	}
 
+	isSpecial := isEMUWSpecial(seToken, meta, rawName)
+
 	// TV Placement: Season/Episode before Year
 	if isTV || seToken != "" {
 		if seToken != "" {
@@ -108,12 +110,12 @@ func BuildEMUWName(meta api.PreparedMetadata, customTag string) string {
 		}
 		isSingleEpisode := (meta.EpisodeInt > 0 || meta.EpisodeStr != "") && !meta.TVPack
 		rawHasYear := yearStr != "" && strings.Contains(rawName, yearStr)
-		if yearStr != "" && (!isSingleEpisode || rawHasYear) {
+		if !isSpecial && yearStr != "" && (!isSingleEpisode || rawHasYear) {
 			parts = append(parts, yearStr)
 		}
 	} else {
 		// Movie Placement: Year
-		if yearStr != "" {
+		if !isSpecial && yearStr != "" {
 			parts = append(parts, yearStr)
 		}
 	}
@@ -314,6 +316,22 @@ func resolveEMUWResolution(rawName string, meta api.PreparedMetadata) string {
 }
 
 func resolveEMUWFormat(rawName string, meta api.PreparedMetadata) string {
+	if meta.ReleaseNameOverrides.Type != nil && strings.TrimSpace(*meta.ReleaseNameOverrides.Type) != "" {
+		override := strings.ToUpper(strings.TrimSpace(*meta.ReleaseNameOverrides.Type))
+		switch {
+		case strings.Contains(override, "WEBRIP") || strings.Contains(override, "WEB-RIP"):
+			return "WEBRip"
+		case strings.Contains(override, "WEBDL") || strings.Contains(override, "WEB-DL"):
+			return "WEB-DL"
+		case strings.Contains(override, "BLURAY") || strings.Contains(override, "BLU-RAY"):
+			return "BluRay"
+		case strings.Contains(override, "REMUX"):
+			return "BDRemux"
+		case strings.Contains(override, "HDTV"):
+			return "HDTV"
+		}
+	}
+
 	upper := strings.ToUpper(rawName)
 	if strings.Contains(upper, "BDREMUX") || strings.Contains(upper, "BD REMUX") || strings.Contains(upper, "BLURAY REMUX") || strings.Contains(upper, "BLU-RAY REMUX") {
 		return "BDRemux"
@@ -582,4 +600,21 @@ func resolveEMUWGroupTag(rawName string, meta api.PreparedMetadata, customTag st
 		return "EMUWAREZ"
 	}
 	return tag
+}
+
+func isEMUWSpecial(seToken string, meta api.PreparedMetadata, rawName string) bool {
+	if strings.HasPrefix(strings.ToUpper(seToken), "S00") {
+		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(meta.SeasonStr), "S00") {
+		return true
+	}
+	if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(meta.EpisodeStr)), "S00") {
+		return true
+	}
+	rawUpper := strings.ToUpper(rawName)
+	if strings.Contains(rawUpper, "S00") {
+		return true
+	}
+	return false
 }

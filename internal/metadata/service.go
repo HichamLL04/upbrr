@@ -1182,10 +1182,14 @@ func applySeasonEpisodeMetadata(meta *api.PreparedMetadata, result seasonep.Resu
 		return
 	}
 
-	if result.Season > 0 {
+	if result.HasSeason || result.Season > 0 || result.SeasonStr == "S00" {
 		meta.SeasonInt = result.Season
-		meta.SeasonStr = seasonep.FormatSeason(result.Season)
-		if meta.Release.Season == 0 {
+		if result.Season > 0 {
+			meta.SeasonStr = seasonep.FormatSeason(result.Season)
+		} else if result.SeasonStr == "S00" || result.HasSeason {
+			meta.SeasonStr = "S00"
+		}
+		if meta.Release.Season == 0 && result.Season > 0 {
 			meta.Release.Season = result.Season
 		}
 	}
@@ -1226,7 +1230,7 @@ func clearSeasonEpisodeMetadata(meta *api.PreparedMetadata) {
 }
 
 func shouldCollapseCLIFolderToVideo(meta api.PreparedMetadata, sourcePath string) bool {
-	if meta.Mode != api.ModeCLI || meta.Options.KeepFolder || meta.TVPack || strings.TrimSpace(meta.DiscType) != "" {
+	if meta.Mode != api.ModeCLI || meta.Options.KeepFolder || meta.TVPack || strings.TrimSpace(meta.DiscType) != "" || strings.EqualFold(strings.TrimSpace(meta.SeasonStr), "S00") {
 		return false
 	}
 	videoPath := strings.TrimSpace(meta.VideoPath)
