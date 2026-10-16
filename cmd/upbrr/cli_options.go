@@ -81,6 +81,7 @@ type cliOptions struct {
 	SkipDupeCheck         bool
 	SkipDupeAsActual      bool
 	DoubleDupeCheck       bool
+	SkipRules             bool
 	Commentary            bool
 	PersonalRelease       bool
 	StreamOptimized       bool
@@ -304,6 +305,9 @@ func parseCLIOptions(args []string) (cliOptions, map[string]bool, []string, erro
 	fs.BoolVar(&opts.SkipDupeAsActual, "skip-dupe-asking", false, "Skip dupe asking")
 	fs.BoolVar(&opts.DoubleDupeCheck, "ddc", false, "Double dupe check")
 	fs.BoolVar(&opts.DoubleDupeCheck, "double-dupe-check", false, "Double dupe check")
+	fs.BoolVar(&opts.SkipRules, "sr", false, "Skip tracker rule checks")
+	fs.BoolVar(&opts.SkipRules, "skip-rules", false, "Skip tracker rule checks")
+	fs.BoolVar(&opts.SkipRules, "ignore-rules", false, "Ignore tracker rule failures")
 	fs.BoolVar(&opts.Commentary, "mc", false, "Mark release as containing commentary")
 	fs.BoolVar(&opts.Commentary, "commentary", false, "Mark release as containing commentary")
 	fs.BoolVar(&opts.PersonalRelease, "pr", false, "Mark release as personal")
@@ -832,18 +836,22 @@ func buildCLIRequest(opts cliOptions, visited map[string]bool, paths []string, s
 			DualAudio:    opts.DualAudio,
 			Region:       opts.Region,
 		}),
-		SkipDupeCheck:          opts.SkipDupeCheck,
-		SkipDupeAsActual:       opts.SkipDupeAsActual || opts.Auto,
-		DoubleDupeCheck:        opts.DoubleDupeCheck,
-		DescriptionOverrideURL: strings.TrimSpace(opts.DescriptionLink),
-		MetadataOverrides:      buildMetadataOverrides(opts, visited),
-		TrackerConfigOverrides: buildTrackerConfigOverrides(opts, visited),
-		TrackerSiteOverrides:   buildTrackerSiteOverrides(opts, visited),
-		ClientOverrides:        buildClientOverrides(opts, visited),
-		ImageHostOverrides:     buildImageHostOverrides(opts, visited),
-		ScreenshotOverrides:    buildScreenshotOverrides(opts, visited),
-		TorrentOverrides:       buildTorrentOverrides(opts, visited),
-		ConfirmBDMVRescan:      opts.ConfirmBDMVRescan,
+		SkipDupeCheck:             opts.SkipDupeCheck,
+		SkipDupeAsActual:          opts.SkipDupeAsActual || opts.Auto,
+		DoubleDupeCheck:           opts.DoubleDupeCheck,
+		IgnoreTrackerRuleFailures: opts.SkipRules || opts.SkipDupeCheck || opts.Auto,
+		DescriptionOverrideURL:    strings.TrimSpace(opts.DescriptionLink),
+		MetadataOverrides:         buildMetadataOverrides(opts, visited),
+		TrackerConfigOverrides:    buildTrackerConfigOverrides(opts, visited),
+		TrackerSiteOverrides:      buildTrackerSiteOverrides(opts, visited),
+		ClientOverrides:           buildClientOverrides(opts, visited),
+		ImageHostOverrides:        buildImageHostOverrides(opts, visited),
+		ScreenshotOverrides:       buildScreenshotOverrides(opts, visited),
+		TorrentOverrides:          buildTorrentOverrides(opts, visited),
+		ConfirmBDMVRescan:         opts.ConfirmBDMVRescan,
+	}
+	if req.IgnoreTrackerRuleFailures {
+		req.IgnoreTrackerRuleFailuresFor = req.Trackers
 	}
 	if req.Execution.SiteUploadTracker != "" {
 		req.Trackers = []string{req.Execution.SiteUploadTracker}

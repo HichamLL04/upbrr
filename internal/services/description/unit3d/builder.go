@@ -72,6 +72,9 @@ func BuildDescription(ctx context.Context, meta api.PreparedMetadata, appConfig 
 		logger.Tracef("trackers: unit3d desc part=template len=%d", len(template))
 	}
 	if kept := stripUnit3DSignature(strings.TrimSpace(keptDescription)); kept != "" {
+		if !strings.Contains(strings.ToLower(kept), "[note]") && !strings.Contains(strings.ToLower(kept), "[quote]") && !strings.Contains(strings.ToLower(kept), "[code]") && !strings.Contains(strings.ToLower(kept), "[spoiler") && !strings.Contains(strings.ToLower(kept), "[img") && !strings.Contains(strings.ToLower(kept), "[center]") {
+			kept = fmt.Sprintf("[center][note]%s[/note][/center]", kept)
+		}
 		appendUniquePart(kept, "kept")
 		logger.Tracef("trackers: unit3d desc part=kept len=%d imgs=%d", len(kept), countBBCodeImages(kept))
 	}

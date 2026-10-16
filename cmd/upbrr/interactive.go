@@ -191,6 +191,9 @@ func runInteractiveCLIPathWithInputAndLogger(ctx context.Context, coreSvc api.Co
 	req.TrackersRemove = appendTrackerRemovals(req.TrackersRemove, unselectedTrackers(candidateTrackers, approved)...)
 	req.IgnoreDupesFor = ignoreDupesFor
 	req.IgnoreTrackerRuleFailuresFor = ruleOverrides
+	if req.IgnoreTrackerRuleFailures {
+		req.IgnoreTrackerRuleFailuresFor = appendTrackerRemovals(req.IgnoreTrackerRuleFailuresFor, approved...)
+	}
 
 	if req.DoubleDupeCheck && len(approved) > 0 {
 		approved, err = runDoubleDupeCheck(ctx, reader, coreSvc, req, approved)
